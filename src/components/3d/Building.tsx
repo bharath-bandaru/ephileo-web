@@ -160,12 +160,11 @@ export default function Building({
         {/* Logo on sign - square aspect ratio to prevent compression */}
         <mesh position={[0, 0, 0.03]}>
           <planeGeometry args={[0.4, 0.4]} />
-          <meshStandardMaterial
+          <meshBasicMaterial
             map={textureError ? undefined : texture}
-            color={textureError ? '#ffffff' : undefined}
+            color={textureError ? '#ffffff' : '#ffffff'}
             transparent
-            emissive={color}
-            emissiveIntensity={isHovered ? 0.4 : 0.15}
+            toneMapped={false}
           />
         </mesh>
 

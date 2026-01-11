@@ -2,7 +2,7 @@
 
 import { Suspense, useState, useRef, useMemo, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Float } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, Float, Text } from '@react-three/drei';
 import { useRouter } from 'next/navigation';
 import gsap from 'gsap';
 import * as THREE from 'three';
@@ -463,6 +463,267 @@ function Dog({ position }: { position: [number, number, number] }) {
   );
 }
 
+// Telephone Booth
+function TelephoneBooth({
+  position,
+  rotation = [0, 0, 0],
+}: {
+  position: [number, number, number];
+  rotation?: [number, number, number];
+}) {
+  const [hovered, setHovered] = useState(false);
+  const frameColor = hovered ? '#d10000' : '#b00000';
+  const glow = hovered ? 0.45 : 0.18;
+
+  const handleClick = () => {
+    const contactSection = document.getElementById('contact');
+    if (contactSection) {
+      contactSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
+
+  const glassMat = useMemo(
+    () => ({
+      color: '#99d6ff',
+      transparent: true,
+      opacity: 0.25,
+      metalness: 0.6,
+      roughness: 0.05,
+    }),
+    []
+  );
+
+  const pillarPositions: [number, number, number][] = [
+    [0.18, 0.7, 0.18],
+    [-0.18, 0.7, 0.18],
+    [0.18, 0.7, -0.18],
+    [-0.18, 0.7, -0.18],
+  ];
+
+  const doorPanePositions = useMemo(
+    () => Array.from({ length: 8 }, (_, i) => {
+      const row = Math.floor(i / 2);
+      const col = i % 2;
+      return [
+        -0.07 + col * 0.14,
+        0.05 - row * 0.17,
+        0.011,
+      ] as [number, number, number];
+    }),
+    []
+  );
+
+  const sidePanePositions = useMemo(
+    () => [
+      { pos: [0.175, 0.72, 0], rot: [0, Math.PI / 2, 0] },
+      { pos: [-0.175, 0.72, 0], rot: [0, Math.PI / 2, 0] },
+      { pos: [0, 0.72, -0.175], rot: [0, 0, 0] },
+    ],
+    []
+  );
+
+  return (
+    <group position={position} rotation={rotation}>
+      {/* Plinth */}
+      <mesh position={[0, 0.04, 0]} castShadow receiveShadow>
+        <boxGeometry args={[0.44, 0.08, 0.44]} />
+        <meshStandardMaterial color="#121212" roughness={0.85} metalness={0.35} />
+      </mesh>
+
+      {/* Invisible collider for hover/click */}
+      <mesh
+        position={[0, 0.75, 0]}
+        onClick={handleClick}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          setHovered(true);
+          document.body.style.cursor = 'pointer';
+        }}
+        onPointerOut={(e) => {
+          e.stopPropagation();
+          setHovered(false);
+          document.body.style.cursor = 'auto';
+        }}
+      >
+        <boxGeometry args={[0.46, 1.5, 0.46]} />
+        <meshStandardMaterial transparent opacity={0} />
+      </mesh>
+
+      {/* Corner pillars */}
+      {pillarPositions.map((p, i) => (
+        <mesh key={`pillar-${i}`} position={p} castShadow receiveShadow>
+          <boxGeometry args={[0.06, 1.4, 0.06]} />
+          <meshStandardMaterial
+            color={frameColor}
+            roughness={0.35}
+            metalness={0.6}
+            emissive={hovered ? '#5c0000' : '#000000'}
+            emissiveIntensity={hovered ? 0.3 : 0}
+          />
+        </mesh>
+      ))}
+
+      {/* Upper fascia with glow */}
+      <mesh position={[0, 1.32, 0]} castShadow>
+        <boxGeometry args={[0.44, 0.12, 0.44]} />
+        <meshStandardMaterial color={frameColor} roughness={0.35} metalness={0.55} />
+      </mesh>
+      <mesh position={[0, 1.38, 0]} castShadow>
+        <sphereGeometry args={[0.24, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color={frameColor} roughness={0.4} metalness={0.55} />
+      </mesh>
+
+      {/* Top header plates and text on all four sides */}
+      {[
+        { pos: [0, 1.36, 0.23], rot: [0, 0, 0] }, // front
+        { pos: [0, 1.36, -0.23], rot: [0, Math.PI, 0] }, // back
+        { pos: [0.23, 1.36, 0], rot: [0, -Math.PI / 2, 0] }, // right
+        { pos: [-0.23, 1.36, 0], rot: [0, Math.PI / 2, 0] }, // left
+      ].map((cfg, i) => (
+        <group key={`header-${i}`} position={cfg.pos as [number, number, number]} rotation={cfg.rot as [number, number, number]}>
+          <Text
+            position={[0, -0.035, 0.001]}
+            fontSize={0.06}
+            color="#ffffff"
+            anchorX="center"
+            anchorY="middle"
+            material-toneMapped={false}
+            outlineWidth={0.01}
+            outlineColor="#0d0d0d"
+          >
+            TELEPHONE
+          </Text>
+        </group>
+      ))}
+
+      {/* TELEPHONE signs */}
+      {[0.18, -0.18].map((z, i) => (
+        <mesh key={`sign-${i}`} position={[0, 1.28, z]} castShadow>
+          <boxGeometry args={[0.3, 0.08, 0.02]} />
+          <meshStandardMaterial
+            color="#f5f5f5"
+            emissive="#f5f5f5"
+            emissiveIntensity={glow}
+            roughness={0.2}
+            metalness={0.1}
+          />
+        </mesh>
+      ))}
+      {[0.18, -0.18].map((x, i) => (
+        <mesh key={`sign-side-${i}`} position={[x, 1.28, 0]} rotation={[0, Math.PI / 2, 0]} castShadow>
+          <boxGeometry args={[0.3, 0.08, 0.02]} />
+          <meshStandardMaterial
+            color="#f5f5f5"
+            emissive="#f5f5f5"
+            emissiveIntensity={glow}
+            roughness={0.2}
+            metalness={0.1}
+          />
+        </mesh>
+      ))}
+
+      {/* Side and rear glass */}
+      {sidePanePositions.map((pane, i) => (
+        <group key={`side-pane-${i}`} position={pane.pos} rotation={pane.rot as [number, number, number]}>
+          <mesh castShadow>
+            <boxGeometry args={[0.3, 1.05, 0.015]} />
+            <meshStandardMaterial {...glassMat} />
+          </mesh>
+          {/* Mullions */}
+          {[ -0.1, 0, 0.1 ].map((x, ix) => (
+            <mesh key={`mullion-x-${i}-${ix}`} position={[x, 0, 0.009]}>
+              <boxGeometry args={[0.02, 1.05, 0.006]} />
+              <meshStandardMaterial color={frameColor} roughness={0.3} metalness={0.6} />
+            </mesh>
+          ))}
+          {[ -0.35, -0.18, 0, 0.18, 0.35 ].map((y, iy) => (
+            <mesh key={`mullion-y-${i}-${iy}`} position={[0, y, 0.009]}>
+              <boxGeometry args={[0.3, 0.015, 0.006]} />
+              <meshStandardMaterial color={frameColor} roughness={0.3} metalness={0.6} />
+            </mesh>
+          ))}
+        </group>
+      ))}
+
+      {/* Door with grid panes */}
+      <group position={[0, 0.7, 0.19]}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[0.32, 1.2, 0.02]} />
+          <meshStandardMaterial color={frameColor} roughness={0.35} metalness={0.55} />
+        </mesh>
+        <mesh position={[0, 0, -0.001]} castShadow>
+          <boxGeometry args={[0.26, 1.04, 0.012]} />
+          <meshStandardMaterial {...glassMat} />
+        </mesh>
+        {doorPanePositions.map((p, i) => (
+          <mesh key={`door-pane-${i}`} position={p}>
+            <boxGeometry args={[0.12, 0.14, 0.006]} />
+            <meshStandardMaterial color={frameColor} roughness={0.35} metalness={0.55} />
+          </mesh>
+        ))}
+        <mesh position={[0.11, 0.05, 0.03]} castShadow>
+          <cylinderGeometry args={[0.012, 0.012, 0.08, 10]} />
+          <meshStandardMaterial color="#f0d35d" roughness={0.25} metalness={0.9} />
+        </mesh>
+      </group>
+
+      {/* Interior shelf and phone */}
+      <group position={[0.05, 0.72, 0]}>
+        <mesh position={[0, -0.05, 0]} castShadow receiveShadow>
+          <boxGeometry args={[0.24, 0.03, 0.16]} />
+          <meshStandardMaterial color="#1a1a1a" roughness={0.5} metalness={0.4} />
+        </mesh>
+        <mesh position={[0, 0, 0]} castShadow>
+          <boxGeometry args={[0.15, 0.08, 0.12]} />
+          <meshStandardMaterial color="#2a2a2a" roughness={0.4} metalness={0.6} />
+        </mesh>
+        <mesh position={[0, 0.05, 0]} rotation={[0, 0, 0.1]} castShadow>
+          <cylinderGeometry args={[0.02, 0.02, 0.12, 12]} />
+          <meshStandardMaterial color="#1a1a1a" roughness={0.5} metalness={0.4} />
+        </mesh>
+        <mesh position={[-0.05, 0.05, 0]} castShadow>
+          <sphereGeometry args={[0.025, 12, 12]} />
+          <meshStandardMaterial color="#1a1a1a" roughness={0.5} metalness={0.4} />
+        </mesh>
+        <mesh position={[0.05, 0.05, 0]} castShadow>
+          <sphereGeometry args={[0.025, 12, 12]} />
+          <meshStandardMaterial color="#1a1a1a" roughness={0.5} metalness={0.4} />
+        </mesh>
+        <mesh position={[0, 0.08, 0.055]} castShadow>
+          <boxGeometry args={[0.08, 0.015, 0.01]} />
+          <meshStandardMaterial color="#3a3a3a" roughness={0.3} metalness={0.7} />
+        </mesh>
+        {Array.from({ length: 12 }, (_, i) => {
+          const row = Math.floor(i / 3);
+          const col = i % 3;
+          return (
+            <mesh
+              key={`key-${i}`}
+              position={[-0.04 + col * 0.04, -0.04 - row * 0.03, 0.055]}
+              castShadow
+            >
+              <boxGeometry args={[0.025, 0.025, 0.01]} />
+              <meshStandardMaterial color="#4a4a4a" roughness={0.3} metalness={0.5} />
+            </mesh>
+          );
+        })}
+        <mesh position={[-0.02, 0.02, 0]} rotation={[0, 0, Math.PI / 4]} castShadow>
+          <cylinderGeometry args={[0.005, 0.005, 0.08, 8]} />
+          <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+        </mesh>
+      </group>
+
+      {/* Interior light */}
+      <pointLight
+        position={[0, 1.1, 0]}
+        color="#ffeecc"
+        intensity={hovered ? 1.2 : 0.6}
+        distance={1.6}
+      />
+    </group>
+  );
+}
+
 // Street lamps
 function StreetLamps() {
   const [isMobile, setIsMobile] = useState(false);
@@ -544,11 +805,40 @@ function Road() {
 
 // Plaza to fill space where the garden was removed
 function Plaza() {
+  const router = useRouter();
+  const [deskHover, setDeskHover] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const tileLines = useMemo(() => {
     const lines: number[] = [];
     for (let i = -24; i <= 24; i += 2) lines.push(i);
     return lines;
   }, []);
+
+  useEffect(() => {
+    const mql = window.matchMedia('(max-width: 640px)');
+    const update = (e: MediaQueryListEvent | MediaQueryList) => setIsMobile(e.matches);
+    update(mql);
+    mql.addEventListener('change', update);
+    return () => mql.removeEventListener('change', update);
+  }, []);
+
+  const handleHelpClick = () => {
+    router.push('/about');
+  };
+
+  const deskPosition: [number, number, number] = isMobile ? [4.5, 0.12, -2.75] : [-1.88, 0.12, -2.75];
+  const person1Offset: [number, number, number] = [0.3, -0.12, 0.35];
+  const person2Offset: [number, number, number] = [-0.25, -0.12, -0.4];
+  const person1Pos: [number, number, number] = [
+    deskPosition[0] + person1Offset[0],
+    deskPosition[1] + person1Offset[1],
+    deskPosition[2] + person1Offset[2],
+  ];
+  const person2Pos: [number, number, number] = [
+    deskPosition[0] + person2Offset[0],
+    deskPosition[1] + person2Offset[1],
+    deskPosition[2] + person2Offset[2],
+  ];
 
   return (
     <group position={[0, 0.02, 5.75]}>
@@ -653,8 +943,72 @@ function Plaza() {
       <Person position={[0.85, 0, 0.85]} color="#0f3c46" />
       <Person position={[-0.85, 0, -0.85]} color="#5a4a4a" />
 
+      {/* Help desk beside fire pit */}
+      <group position={deskPosition}>
+        {/* Table */}
+        <mesh
+          position={[0, 0.18, 0]}
+          castShadow
+          receiveShadow
+          onClick={handleHelpClick}
+          onPointerOver={(e) => {
+            e.stopPropagation();
+            setDeskHover(true);
+            document.body.style.cursor = 'pointer';
+          }}
+          onPointerOut={(e) => {
+            e.stopPropagation();
+            setDeskHover(false);
+            document.body.style.cursor = 'auto';
+          }}
+        >
+          <boxGeometry args={[1.1, 0.1, 0.6]} />
+          <meshStandardMaterial
+            color={deskHover ? '#204f60' : '#163844'}
+            roughness={0.4}
+            metalness={0.25}
+            emissive={deskHover ? '#0b4c6d' : '#000000'}
+            emissiveIntensity={deskHover ? 0.4 : 0}
+          />
+        </mesh>
+
+        {/* Table legs */}
+        {[[-0.5, -0.21, -0.25], [0.5, -0.21, -0.25], [-0.5, -0.21, 0.25], [0.5, -0.21, 0.25]].map((p, i) => (
+          <mesh key={`leg-${i}`} position={p as [number, number, number]} castShadow>
+            <cylinderGeometry args={[0.03, 0.03, 0.7, 10]} />
+            <meshStandardMaterial color="#0c1c24" roughness={0.6} metalness={0.2} />
+          </mesh>
+        ))}
+
+        {/* Desk lamp */}
+        <group position={[0.35, 0.26, 0.08]}>
+          <mesh position={[0, 0.05, 0]} rotation={[Math.PI / 2.5, 0, 0]} castShadow>
+            <cylinderGeometry args={[0.05, 0.03, 0.18, 10]} />
+            <meshStandardMaterial color="#1d1d1d" roughness={0.7} metalness={0.2} />
+          </mesh>
+          <mesh position={[0, 0.16, 0.08]} castShadow>
+            <sphereGeometry args={[0.07, 12, 12]} />
+            <meshStandardMaterial color="#ffeecc" emissive="#ffdd99" emissiveIntensity={0.8} />
+          </mesh>
+          <pointLight position={[0, 0.16, 0.08]} color="#ffdba0" intensity={deskHover ? 1.8 : 1.2} distance={2} />
+        </group>
+
+        {/* Desk sign */}
+        <mesh position={[-0.35, 0.24, 0]} castShadow>
+          <boxGeometry args={[0.2, 0.1, 0.02]} />
+          <meshStandardMaterial color="#0b4c6d" emissive={deskHover ? '#0b4c6d' : '#052736'} emissiveIntensity={deskHover ? 0.5 : 0.15} />
+        </mesh>
+      </group>
+
+      {/* People near help desk */}
+      <Person position={person1Pos} color="#355f7a" />
+      <Person position={person2Pos} color="#6d4a3a" />
+
       {/* Dog companion next to one person */}
       <Dog position={[1.45, 0, 0.25]} />
+
+      {/* Telephone booth */}
+      <TelephoneBooth position={isMobile ? [1.5, 0, -2.5] : [1, 0, -2.5]} rotation={[0, 0, 0]} />
 
       {/* Low bollards as edge definition instead of vegetation */}
       {Array.from({ length: 18 }, (_, i) => i - 9).map((i) => (
