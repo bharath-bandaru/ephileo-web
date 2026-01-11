@@ -223,7 +223,7 @@ export default function ProjectPage() {
                         <motion.button
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
-                          className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-white text-black font-medium"
+                          className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-white text-black font-medium cursor-pointer"
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -243,7 +243,7 @@ export default function ProjectPage() {
                         <motion.button
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
-                          className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-zinc-800 text-white font-medium"
+                          className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-zinc-800 text-white font-medium cursor-pointer"
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -263,7 +263,7 @@ export default function ProjectPage() {
                         <motion.button
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
-                          className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl"
+                          className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl cursor-pointer"
                           style={{ backgroundColor: project.color + '30', color: project.accentColor }}
                         >
                           <svg
