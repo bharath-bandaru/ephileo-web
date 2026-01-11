@@ -1187,7 +1187,7 @@ function Scene({ onBuildingClick, onFirePitClick }: { onBuildingClick: (id: stri
 
   const cameraPosition: [number, number, number] = isMobile
     ? [8.620148792505306, 3.7640507683034587, 8.690509571291406]
-    : [8.781542159511115, 1.8225191805880196, 9.141276778279817]; //[8, 6, 8];
+    : [8.39287207501218, 2.3046168219937093, 9.394064063878695]; //[8, 6, 8];
 
   return (
     <>
@@ -1248,6 +1248,12 @@ function Scene({ onBuildingClick, onFirePitClick }: { onBuildingClick: (id: stri
         minPolarAngle={Math.PI / 4}
         maxAzimuthAngle={Math.PI / 3}
         minAzimuthAngle={-Math.PI / 3}
+        onChange={(e) => {
+          if (e?.target && 'object' in e.target) {
+            const controls = e.target as { object: { position: { toArray: () => number[] } } };
+            console.log('Camera position:', controls.object.position.toArray());
+          }
+        }}
       />
     </>
   );
