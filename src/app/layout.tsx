@@ -1,11 +1,17 @@
 import type { Metadata } from "next";
-import { Figtree } from "next/font/google";
+import { Figtree, Cookie } from "next/font/google";
 import "./globals.css";
 
 const figtree = Figtree({
   variable: "--font-figtree",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700", "800", "900"],
+});
+
+const cookie = Cookie({
+  variable: "--font-cookie",
+  subsets: ["latin"],
+  weight: ["400"],
 });
 
 export const metadata: Metadata = {
@@ -27,8 +33,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="scroll-smooth">
-      <body
-        className={`${figtree.variable} antialiased bg-black`}
+      <body 
+        className={`${figtree.variable} ${cookie.variable} antialiased bg-black`}
       >
         {children}
       </body>

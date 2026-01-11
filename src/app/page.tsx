@@ -131,7 +131,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, delay: 0.2 }}
-            className="text-6xl md:text-8xl font-bold mb-4 tracking-tight bg-gradient-to-r from-[#f2b134] via-[#0fb0c8] to-[#1fc77a] bg-clip-text text-transparent"
+            className="text-6xl md:text-8xl font-bold mb-4 text-white font-[family-name:var(--font-cookie)]"
           >
             ephileo
           </motion.h1>
@@ -141,7 +141,7 @@ export default function Home() {
             transition={{ duration: 0.8, delay: 0.4 }}
             className="text-xl md:text-2xl text-zinc-300 mb-8"
           >
-            build products people love
+            build products people love.
           </motion.p>
           <motion.p
             initial={{ opacity: 0, y: 30 }}
@@ -230,7 +230,7 @@ export default function Home() {
               transition={{ duration: 0.6 }}
               className="inline-block mb-4"
             >
-              <span className="px-4 py-2 rounded-full bg-[#f2b134]/15 border border-[#f2b134]/25 text-[#f2b134] text-sm font-medium">
+              <span className="px-4 py-2 rounded-full bg-[#1fc77a]/15 border border-[#1fc77a]/25 text-[#1fc77a] text-sm font-medium">
                 Who We Are
               </span>
             </motion.div>
@@ -494,7 +494,7 @@ export default function Home() {
                   whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
                   whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
                   disabled={isSubmitting}
-                  className="w-full px-6 py-4 rounded-xl bg-gradient-to-r from-[#f2b134] via-[#0fb0c8] to-[#1fc77a] text-white font-semibold hover:from-[#d99c2b] hover:via-[#0da1b5] hover:to-[#18aa6a] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#0fb0c8]/20"
+                  className="w-full px-6 py-4 rounded-xl bg-[#0fb0c8] text-white font-semibold hover:bg-[#0da1b5] transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-[#0fb0c8]/30"
                 >
                   {isSubmitting ? (
                     <span className="flex items-center justify-center gap-2">

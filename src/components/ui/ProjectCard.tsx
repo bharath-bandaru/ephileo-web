@@ -24,7 +24,7 @@ export default function ProjectCard({ project, index }: ProjectCardProps) {
     >
       <Link href={`/projects/${project.id}`}>
         <motion.div
-          className="group relative overflow-hidden rounded-3xl bg-zinc-900 cursor-pointer"
+          className="group relative overflow-hidden rounded-3xl bg-[#0a1414] cursor-pointer"
           whileHover={{ scale: 1.02 }}
           transition={{ duration: 0.3 }}
         >
@@ -37,17 +37,14 @@ export default function ProjectCard({ project, index }: ProjectCardProps) {
               className="object-cover transition-transform duration-500 group-hover:scale-110"
             />
             <div
-              className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent"
+              className="absolute inset-0 bg-gradient-to-t from-[#0a1414] via-transparent to-transparent"
             />
           </div>
 
           {/* Content */}
           <div className="relative p-6">
             <div className="flex items-center gap-4 mb-4">
-              <div
-                className="w-16 h-16 rounded-2xl overflow-hidden shadow-lg p-2"
-                style={{ backgroundColor: project.color + '20' }}
-              >
+              <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-lg p-2 bg-black">
                 <Image
                   src={project.logo}
                   alt={`${project.name} logo`}
@@ -62,7 +59,7 @@ export default function ProjectCard({ project, index }: ProjectCardProps) {
               </div>
               {project.status === 'coming-soon' && (
                 <span
-                  className="ml-auto px-3 py-1 rounded-full text-xs font-semibold"
+                  className="ml-auto px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap"
                   style={{
                     backgroundColor: project.color + '30',
                     color: project.accentColor,
