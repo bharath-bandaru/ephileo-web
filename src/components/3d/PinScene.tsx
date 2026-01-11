@@ -2,12 +2,25 @@
 
 import { Suspense, useState, useRef, useMemo, useEffect } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, PerspectiveCamera, Float, Text } from '@react-three/drei';
+import { OrbitControls, PerspectiveCamera, Float, Text, Html } from '@react-three/drei';
 import { useRouter } from 'next/navigation';
 import gsap from 'gsap';
 import * as THREE from 'three';
 import Building from './Building';
 import { projects } from '@/lib/projects';
+
+// Tooltip component
+function Tooltip({ children, visible }: { children: React.ReactNode; visible: boolean }) {
+  if (!visible) return null;
+
+  return (
+    <Html center>
+      <div className="px-3 py-1.5 bg-black/90 text-white text-sm rounded-md whitespace-nowrap pointer-events-none backdrop-blur-sm border border-white/10">
+        {children}
+      </div>
+    </Html>
+  );
+}
 
 // Ground plane with grid pattern
 function Ground() {
@@ -527,6 +540,11 @@ function TelephoneBooth({
 
   return (
     <group position={position} rotation={rotation}>
+      {/* Tooltip */}
+      <group position={[0, 1.85, 0]}>
+        <Tooltip visible={hovered}>Contact</Tooltip>
+      </group>
+
       {/* Plinth */}
       <mesh position={[0, 0.04, 0]} castShadow receiveShadow>
         <boxGeometry args={[0.44, 0.08, 0.44]} />
@@ -894,6 +912,11 @@ function Plaza({ onFirePitClick }: { onFirePitClick: () => void }) {
           document.body.style.cursor = 'auto';
         }}
       >
+        {/* Tooltip */}
+        <group position={[0, 1.2, 0]}>
+          <Tooltip visible={fireHover}>Projects</Tooltip>
+        </group>
+
         {/* Stone base */}
         <mesh castShadow receiveShadow>
           <cylinderGeometry args={[0.6, 0.65, 0.3, 24]} />
@@ -981,6 +1004,11 @@ function Plaza({ onFirePitClick }: { onFirePitClick: () => void }) {
 
       {/* Help desk beside fire pit */}
       <group position={deskPosition}>
+        {/* Tooltip */}
+        <group position={[0, 0.85, 0]}>
+          <Tooltip visible={deskHover}>About</Tooltip>
+        </group>
+
         {/* Table */}
         <mesh
           position={[0, 0.18, 0]}
@@ -1167,6 +1195,7 @@ function Buildings({ onBuildingClick }: { onBuildingClick: (id: string) => void 
             onClick={() => onBuildingClick(project.id)}
             isHovered={hoveredBuilding === project.id}
             onHover={(hovered) => setHoveredBuilding(hovered ? project.id : null)}
+            name={project.name}
           />
         </Float>
       ))}

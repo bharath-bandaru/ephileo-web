@@ -2,8 +2,22 @@
 
 import { useRef, useState, useMemo } from 'react';
 import { useFrame, useLoader } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
 import { TextureLoader } from 'three';
 import * as THREE from 'three';
+
+// Tooltip component
+function Tooltip({ children, visible }: { children: React.ReactNode; visible: boolean }) {
+  if (!visible) return null;
+
+  return (
+    <Html center>
+      <div className="px-3 py-1.5 bg-black/90 text-white text-sm rounded-md whitespace-nowrap pointer-events-none backdrop-blur-sm border border-white/10">
+        {children}
+      </div>
+    </Html>
+  );
+}
 
 interface BuildingProps {
   position: [number, number, number];
@@ -13,6 +27,7 @@ interface BuildingProps {
   onClick: () => void;
   isHovered: boolean;
   onHover: (hovered: boolean) => void;
+  name: string;
 }
 
 export default function Building({
@@ -22,7 +37,8 @@ export default function Building({
   height = 2,
   onClick,
   isHovered,
-  onHover
+  onHover,
+  name
 }: BuildingProps) {
   const groupRef = useRef<THREE.Group>(null);
   const [textureError, setTextureError] = useState(false);
@@ -91,6 +107,11 @@ export default function Building({
       onPointerOver={() => onHover(true)}
       onPointerOut={() => onHover(false)}
     >
+      {/* Tooltip */}
+      <group position={[0, height + 1.2, 0]}>
+        <Tooltip visible={isHovered}>{name}</Tooltip>
+      </group>
+
       {/* Building base/foundation */}
       <mesh position={[0, 0.05, 0]} castShadow receiveShadow>
         <boxGeometry args={[1, 0.1, 1]} />
