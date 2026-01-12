@@ -567,7 +567,15 @@ export default function Home() {
                   &copy; {new Date().getFullYear()} Ephileo. All rights reserved.
                 </p>
                 <p className="text-zinc-500 text-xs">
-                  Designed by <span className="text-zinc-400">Bharath Bandaru</span>
+                  Designed by{' '}
+                  <a
+                    href="https://portfolio-4a2e3.web.app/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-zinc-400 hover:text-[#0fb0c8] transition-colors cursor-pointer"
+                  >
+                    Bharath Bandaru
+                  </a>
                 </p>
               </div>
             </div>
