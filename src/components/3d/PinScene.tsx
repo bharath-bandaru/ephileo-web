@@ -1281,12 +1281,6 @@ function Scene({ onBuildingClick, onFirePitClick, onInteraction }: { onBuildingC
         minPolarAngle={Math.PI / 4}
         maxAzimuthAngle={Math.PI / 3}
         minAzimuthAngle={-Math.PI / 3}
-        onChange={(e) => {
-          if (e?.target && 'object' in e.target) {
-            const controls = e.target as { object: { position: { toArray: () => number[] } } };
-            console.log('Camera position:', controls.object.position.toArray());
-          }
-        }}
       />
     </>
   );
