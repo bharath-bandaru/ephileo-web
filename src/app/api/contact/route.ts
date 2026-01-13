@@ -33,8 +33,39 @@ export async function POST(request: Request) {
       );
     }
 
-    // Send email FROM admin@ephileo.us TO the user who submitted the form
-    const response = await fetch('https://api.resend.com/emails', {
+    // Send the contact message to admin@ephileo.us
+    const adminResponse = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${resendApiKey}`,
+      },
+      body: JSON.stringify({
+        from: 'Ephileo Contact <admin@ephileo.us>',
+        to: ['admin@ephileo.us'],
+        reply_to: email,
+        subject: `New Contact Message from ${name}`,
+        html: `
+          <h2>New Contact Form Submission</h2>
+          <p><strong>Name:</strong> ${name}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Message:</strong></p>
+          <p>${message.replace(/\n/g, '<br>')}</p>
+        `,
+      }),
+    });
+
+    if (!adminResponse.ok) {
+      const error = await adminResponse.json();
+      console.error('Resend API error (admin email):', error);
+      return NextResponse.json(
+        { error: 'Failed to send email' },
+        { status: 500 }
+      );
+    }
+
+    // Send confirmation email to the user
+    const userResponse = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -56,13 +87,10 @@ export async function POST(request: Request) {
       }),
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      console.error('Resend API error:', error);
-      return NextResponse.json(
-        { error: 'Failed to send email' },
-        { status: 500 }
-      );
+    if (!userResponse.ok) {
+      const error = await userResponse.json();
+      console.error('Resend API error (user confirmation):', error);
+      // Don't fail the request if user confirmation fails, admin already received it
     }
 
     return NextResponse.json(
