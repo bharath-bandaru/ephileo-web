@@ -347,7 +347,7 @@ export default function Home() {
               Our Projects
             </h2>
             <p className="text-zinc-400 text-lg max-w-2xl mx-auto">
-              Beautifully designed applications that bring joy to people&apos;s lives
+              Beautifully designed applications that bring joy to people&apos;s lives.
             </p>
           </motion.div>
 
