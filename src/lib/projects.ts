@@ -29,6 +29,7 @@ export const projects: Project[] = [
     type: 'app',
     status: 'released',
     links: {
+      appStore: 'https://apps.apple.com/us/app/roamates/id6757687270',
       playStore: 'https://play.google.com/store/apps/details?id=us.ephileo.roamates',
     },
   },
