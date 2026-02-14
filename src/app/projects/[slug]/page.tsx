@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -13,6 +13,9 @@ export default function ProjectPage() {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const project = getProject(params.slug as string);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   useEffect(() => {
     if (containerRef.current) {
@@ -35,6 +38,40 @@ export default function ProjectPage() {
           router.push('/');
         },
       });
+    }
+  };
+
+  const handleContactSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    setSubmitStatus('idle');
+
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+    const data = {
+      name: formData.get('name') as string,
+      email: formData.get('email') as string,
+      message: formData.get('message') as string,
+    };
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (response.ok) {
+        setSubmitStatus('success');
+        form.reset();
+        setTimeout(() => setSubmitStatus('idle'), 5000);
+      } else {
+        setSubmitStatus('error');
+      }
+    } catch {
+      setSubmitStatus('error');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -326,8 +363,10 @@ export default function ProjectPage() {
                   <p className="text-zinc-500 text-sm mb-4">
                     Have a question, feedback, or need support?
                   </p>
-                  <Link href="/#contact">
+
+                  {!contactOpen && (
                     <motion.button
+                      onClick={() => setContactOpen(true)}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl cursor-pointer"
@@ -348,7 +387,67 @@ export default function ProjectPage() {
                       </svg>
                       Contact Us
                     </motion.button>
-                  </Link>
+                  )}
+
+                  <motion.div
+                    initial={false}
+                    animate={{
+                      height: contactOpen ? 'auto' : 0,
+                      opacity: contactOpen ? 1 : 0,
+                    }}
+                    transition={{ duration: 0.3, ease: 'easeInOut' }}
+                    className="overflow-hidden"
+                  >
+                    <form onSubmit={handleContactSubmit} className="space-y-4">
+                      <div>
+                        <input
+                          type="text"
+                          name="name"
+                          className="w-full px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#10B981]/50 transition-all"
+                          placeholder="Your name"
+                          required
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="email"
+                          name="email"
+                          className="w-full px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#10B981]/50 transition-all"
+                          placeholder="your@email.com"
+                          required
+                          disabled={isSubmitting}
+                        />
+                      </div>
+                      <div>
+                        <textarea
+                          name="message"
+                          rows={3}
+                          className="w-full px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#10B981]/50 transition-all resize-none"
+                          placeholder="Your message..."
+                          required
+                          disabled={isSubmitting}
+                        />
+                      </div>
+
+                      {submitStatus === 'success' && (
+                        <p className="text-[#10B981] text-sm">Message sent! We&apos;ll get back to you soon.</p>
+                      )}
+                      {submitStatus === 'error' && (
+                        <p className="text-red-400 text-sm">Failed to send. Please try again.</p>
+                      )}
+
+                      <motion.button
+                        type="submit"
+                        whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
+                        whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
+                        disabled={isSubmitting}
+                        className="w-full px-4 py-2.5 rounded-lg bg-[#10B981] text-white text-sm font-medium hover:bg-[#0ea472] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        {isSubmitting ? 'Sending...' : 'Send Message'}
+                      </motion.button>
+                    </form>
+                  </motion.div>
                 </div>
               )}
 

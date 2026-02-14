@@ -512,6 +512,7 @@ function TelephoneBooth({
   const [navActive, setNavActive] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const groupRef = useRef<THREE.Group>(null);
+  const pointerDownPos = useRef<{ x: number; y: number } | null>(null);
   const { setTarget } = useCameraTarget();
 
   const frameColor = hovered ? '#d10000' : '#b00000';
@@ -543,6 +544,23 @@ function TelephoneBooth({
         groupRef.current.getWorldPosition(worldPos);
         setTarget([worldPos.x, worldPos.y + 0.5, worldPos.z]);
       }
+    }
+  };
+
+  const handlePointerDown = (e: { clientX: number; clientY: number; stopPropagation: () => void }) => {
+    e.stopPropagation();
+    pointerDownPos.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handlePointerUp = (e: { clientX: number; clientY: number; stopPropagation: () => void }) => {
+    e.stopPropagation();
+    if (pointerDownPos.current) {
+      const dx = e.clientX - pointerDownPos.current.x;
+      const dy = e.clientY - pointerDownPos.current.y;
+      if (Math.sqrt(dx * dx + dy * dy) < 10) {
+        handleClick();
+      }
+      pointerDownPos.current = null;
     }
   };
 
@@ -606,7 +624,8 @@ function TelephoneBooth({
       {/* Invisible collider for hover/click */}
       <mesh
         position={[0, 0.75, 0]}
-        onClick={handleClick}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
         onPointerOver={(e) => {
           e.stopPropagation();
           setHovered(true);
@@ -889,6 +908,8 @@ function Plaza({ onFirePitClick, onInteraction }: { onFirePitClick: () => void; 
   const deskTimerRef = useRef<NodeJS.Timeout | null>(null);
   const firePitRef = useRef<THREE.Group>(null);
   const deskRef = useRef<THREE.Group>(null);
+  const firePointerDown = useRef<{ x: number; y: number } | null>(null);
+  const deskPointerDown = useRef<{ x: number; y: number } | null>(null);
   const { setTarget } = useCameraTarget();
 
   const tileLines = useMemo(() => {
@@ -1004,10 +1025,19 @@ function Plaza({ onFirePitClick, onInteraction }: { onFirePitClick: () => void; 
       <group
         ref={firePitRef}
         position={[0, 0.15, 0]}
-        onClick={(e) => {
+        onPointerDown={(e) => {
           e.stopPropagation();
-          if (!fireNavActive) {
-            handleFirePitClick();
+          firePointerDown.current = { x: e.clientX, y: e.clientY };
+        }}
+        onPointerUp={(e) => {
+          e.stopPropagation();
+          if (firePointerDown.current) {
+            const dx = e.clientX - firePointerDown.current.x;
+            const dy = e.clientY - firePointerDown.current.y;
+            if (Math.sqrt(dx * dx + dy * dy) < 10 && !fireNavActive) {
+              handleFirePitClick();
+            }
+            firePointerDown.current = null;
           }
         }}
         onPointerOver={(e) => {
@@ -1131,10 +1161,19 @@ function Plaza({ onFirePitClick, onInteraction }: { onFirePitClick: () => void; 
           position={[0, 0.18, 0]}
           castShadow
           receiveShadow
-          onClick={(e) => {
+          onPointerDown={(e) => {
             e.stopPropagation();
-            if (!deskNavActive) {
-              handleHelpClick();
+            deskPointerDown.current = { x: e.clientX, y: e.clientY };
+          }}
+          onPointerUp={(e) => {
+            e.stopPropagation();
+            if (deskPointerDown.current) {
+              const dx = e.clientX - deskPointerDown.current.x;
+              const dy = e.clientY - deskPointerDown.current.y;
+              if (Math.sqrt(dx * dx + dy * dy) < 10 && !deskNavActive) {
+                handleHelpClick();
+              }
+              deskPointerDown.current = null;
             }
           }}
           onPointerOver={(e) => {
