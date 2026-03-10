@@ -241,8 +241,8 @@ export default function ProjectPage() {
                     />
                     <FeatureItem
                       color={project.color}
-                      title="Smart Features"
-                      description="Intelligent tools that adapt to your needs"
+                      title="Real-Time Sync"
+                      description="Live locations, balances, and updates across your group"
                     />
                     <FeatureItem
                       color={project.color}
