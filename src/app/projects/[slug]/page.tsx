@@ -354,6 +354,25 @@ export default function ProjectPage() {
                 </div>
               )}
 
+              {/* Product Hunt Badge */}
+              {project.id === 'roamates' && (
+                <div className="flex justify-center">
+                  <a
+                    href="https://www.producthunt.com/products/roamates?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-roamates"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      alt="roamates - The all-in-one app for roommates and travel companions. | Product Hunt"
+                      width={250}
+                      height={54}
+                      src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1095702&theme=light&t=1773340998713"
+                    />
+                  </a>
+                </div>
+              )}
+
               {/* Contact */}
               {project.id === 'roamates' && (
                 <div className="bg-zinc-900 rounded-2xl p-6">
