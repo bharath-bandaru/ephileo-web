@@ -59,7 +59,7 @@ export default function RoamatesTermsPage() {
           </h1>
 
           <p className="text-zinc-400 mb-8">
-            <strong>Last Updated:</strong> January 31, 2026
+            <strong>Last Updated:</strong> June 14, 2026
           </p>
 
           <div className="prose prose-invert prose-zinc max-w-none">
@@ -81,12 +81,15 @@ export default function RoamatesTermsPage() {
                 Roamates is a mobile application that provides:
               </p>
               <ul className="list-disc list-inside text-zinc-400 space-y-2 ml-4">
-                <li><strong className="text-zinc-300">Group Expense Management:</strong> Create, track, and settle shared expenses among friends and groups</li>
-                <li><strong className="text-zinc-300">Trip Planning:</strong> Organize group trips with destinations, timelines, and expense tracking</li>
+                <li><strong className="text-zinc-300">Group Expense Management:</strong> Create, track, and split shared expenses using multiple split types (equal, exact, percentage, and shares)</li>
+                <li><strong className="text-zinc-300">Receipt Scanning:</strong> Scan receipts with your device camera or photo library to automatically extract and split itemized expenses</li>
+                <li><strong className="text-zinc-300">Multi-Currency Support:</strong> Record expenses in 180+ currencies</li>
+                <li><strong className="text-zinc-300">Settlement &amp; Payment Tracking:</strong> Track payments and settle debts between users, including smart debt netting to minimize transactions</li>
+                <li><strong className="text-zinc-300">CSV Import:</strong> Bulk import expenses from external sources</li>
                 <li><strong className="text-zinc-300">Location Sharing:</strong> Share your real-time location with friends and group members</li>
+                <li><strong className="text-zinc-300">Trip Planning:</strong> Organize group trips with destinations, timelines, and expense tracking</li>
                 <li><strong className="text-zinc-300">Task Management:</strong> Create and assign tasks and to-do lists within groups</li>
                 <li><strong className="text-zinc-300">Group Management:</strong> Create and manage various group types (home, trips, couples, etc.)</li>
-                <li><strong className="text-zinc-300">Payment Tracking:</strong> Track payments and settlements between users</li>
                 <li><strong className="text-zinc-300">Activity Feed:</strong> View all group activities and updates</li>
               </ul>
             </section>
@@ -114,7 +117,7 @@ export default function RoamatesTermsPage() {
 
               <h3 className="text-xl font-semibold text-white mb-3 mt-6">4.1 Account Creation</h3>
               <p className="text-zinc-400 leading-relaxed">
-                To use Roamates, you must create an account using email and password registration.
+                To use Roamates, you must create an account. You may register using email and password, or sign in with a third-party provider (Google, Apple, or Facebook). When you use social sign-in, we receive basic profile information (such as your name and email address) from that provider in accordance with their terms and your privacy settings.
               </p>
 
               <h3 className="text-xl font-semibold text-white mb-3 mt-6">4.2 Account Security</h3>
@@ -162,10 +165,17 @@ export default function RoamatesTermsPage() {
                 <li>Currency preferences and budgets</li>
               </ul>
 
-              <p className="text-zinc-300 font-semibold mb-2">Device Information:</p>
+              <p className="text-zinc-300 font-semibold mb-2">Photos and Camera Data (with your permission):</p>
+              <ul className="list-disc list-inside text-zinc-400 space-y-2 ml-4 mb-4">
+                <li>Receipt images you capture with your camera or select from your photo library</li>
+                <li>Text extracted from receipts via on-device optical character recognition (OCR)</li>
+              </ul>
+
+              <p className="text-zinc-300 font-semibold mb-2">Device and Usage Information:</p>
               <ul className="list-disc list-inside text-zinc-400 space-y-2 ml-4 mb-4">
                 <li>Device identifiers and platform type</li>
                 <li>Push notification tokens</li>
+                <li>Analytics and usage data to help us understand and improve the App</li>
               </ul>
 
               <p className="text-zinc-300 font-semibold mb-2">Contact Data (with your permission):</p>
@@ -329,9 +339,12 @@ export default function RoamatesTermsPage() {
                 Roamates uses third-party services including:
               </p>
               <ul className="list-disc list-inside text-zinc-400 space-y-2 ml-4">
-                <li><strong className="text-zinc-300">Google Maps:</strong> For mapping and location features</li>
-                <li><strong className="text-zinc-300">Firebase:</strong> For push notifications and authentication</li>
-                <li><strong className="text-zinc-300">PostHog:</strong> For analytics and app improvement</li>
+                <li><strong className="text-zinc-300">Google Maps &amp; Mapbox:</strong> For mapping and location features</li>
+                <li><strong className="text-zinc-300">Google ML Kit:</strong> For on-device receipt text recognition (OCR)</li>
+                <li><strong className="text-zinc-300">Firebase:</strong> For push notifications, authentication, and analytics</li>
+                <li><strong className="text-zinc-300">Google, Apple, and Facebook:</strong> For optional social sign-in</li>
+                <li><strong className="text-zinc-300">PostHog:</strong> For product analytics and app improvement</li>
+                <li><strong className="text-zinc-300">Email Delivery:</strong> For transactional emails such as password resets and verification</li>
               </ul>
               <p className="text-zinc-400 leading-relaxed mt-4">
                 Your use of these services is subject to their respective terms and privacy policies. We are not responsible for the practices of third-party services.

@@ -6,7 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import gsap from 'gsap';
-import { getProject, projects } from '@/lib/projects';
+import { getProject, projects, type Project } from '@/lib/projects';
 
 export default function ProjectPage() {
   const params = useParams();
@@ -178,7 +178,7 @@ export default function ProjectPage() {
       </div>
 
       {/* Content Section */}
-      <div className="px-8 md:px-16 py-16">
+      <div className="px-8 md:px-16">
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-3 gap-12">
             {/* Main Content */}
@@ -188,6 +188,11 @@ export default function ProjectPage() {
               transition={{ duration: 0.6, delay: 0.5 }}
               className="md:col-span-2"
             >
+              {/* Get the App — mobile only, shown above the fold */}
+              <div className="md:hidden mb-10">
+                <GetTheApp project={project} />
+              </div>
+
               <h2 className="text-2xl font-bold text-white mb-6">About</h2>
               <p className="text-zinc-400 text-lg leading-relaxed mb-8">
                 {project.description}
@@ -214,7 +219,17 @@ export default function ProjectPage() {
               {/* Features Section */}
               <h2 className="text-2xl font-bold text-white mb-6">Features</h2>
               <div className="space-y-4 mb-12">
-                {project.type === 'game' ? (
+                {project.features && project.features.length > 0 ? (
+                  project.features.map((feature) => (
+                    <FeatureItem
+                      key={feature.title}
+                      color={project.color}
+                      icon={feature.icon}
+                      title={feature.title}
+                      description={feature.description}
+                    />
+                  ))
+                ) : project.type === 'game' ? (
                   <>
                     <FeatureItem
                       color={project.color}
@@ -261,83 +276,10 @@ export default function ProjectPage() {
               transition={{ duration: 0.6, delay: 0.6 }}
               className="space-y-6"
             >
-              {/* Download buttons */}
-              {project.status === 'released' && project.links && (
-                <div className="bg-zinc-900 rounded-2xl p-6">
-                  <h3 className="text-lg font-semibold text-white mb-4">
-                    Get the App
-                  </h3>
-                  <div className="flex flex-col gap-4">
-                    {project.links.appStore && (
-                      <Link href={project.links.appStore} target="_blank" rel="noopener noreferrer">
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-white text-black font-medium cursor-pointer"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                          >
-                            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
-                          </svg>
-                          App Store
-                        </motion.button>
-                      </Link>
-                    )}
-                    {project.links.playStore && (
-                      <Link href={project.links.playStore} target="_blank" rel="noopener noreferrer">
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-zinc-800 text-white font-medium cursor-pointer"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="currentColor"
-                          >
-                            <path d="M3 20.5v-17c0-.59.34-1.11.84-1.35L13.69 12l-9.85 9.85c-.5-.24-.84-.76-.84-1.35zm13.81-5.38L6.05 21.34l8.49-8.49 2.27 2.27zm3.35-4.31c.34.27.64.71.64 1.19s-.09.82-.64 1.19l-2.11 1.21-2.5-2.5 2.5-2.5 2.11 1.21v.2zM6.05 2.66l10.76 6.22-2.27 2.27L6.05 2.66z" />
-                          </svg>
-                          Google Play
-                        </motion.button>
-                      </Link>
-                    )}
-                    {project.links.website && (
-                      <Link href={project.links.website} target="_blank" rel="noopener noreferrer">
-                        <motion.button
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                          className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl cursor-pointer"
-                          style={{ backgroundColor: project.color + '30', color: project.accentColor }}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            width="20"
-                            height="20"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <circle cx="12" cy="12" r="10" />
-                            <line x1="2" y1="12" x2="22" y2="12" />
-                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-                          </svg>
-                          Play Online
-                        </motion.button>
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              )}
+              {/* Download buttons — desktop only (mobile copy is at the top) */}
+              <div className="hidden md:block">
+                <GetTheApp project={project} />
+              </div>
 
               {project.status === 'coming-soon' && (
                 <div
@@ -609,12 +551,108 @@ export default function ProjectPage() {
   );
 }
 
+function GetTheApp({ project }: { project: Project }) {
+  if (!(project.status === 'released' && project.links)) return null;
+
+  return (
+    <div className="bg-zinc-900 rounded-2xl p-6">
+      <h3 className="text-lg font-semibold text-white mb-4">Get the App</h3>
+      <div className="flex flex-col sm:flex-row md:flex-col gap-4">
+        {project.links.appStore && (
+          <Link
+            href={project.links.appStore}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1"
+          >
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-white text-black font-medium cursor-pointer"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+              </svg>
+              App Store
+            </motion.button>
+          </Link>
+        )}
+        {project.links.playStore && (
+          <Link
+            href={project.links.playStore}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1"
+          >
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-zinc-800 text-white font-medium cursor-pointer"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+              >
+                <path d="M3 20.5v-17c0-.59.34-1.11.84-1.35L13.69 12l-9.85 9.85c-.5-.24-.84-.76-.84-1.35zm13.81-5.38L6.05 21.34l8.49-8.49 2.27 2.27zm3.35-4.31c.34.27.64.71.64 1.19s-.09.82-.64 1.19l-2.11 1.21-2.5-2.5 2.5-2.5 2.11 1.21v.2zM6.05 2.66l10.76 6.22-2.27 2.27L6.05 2.66z" />
+              </svg>
+              Google Play
+            </motion.button>
+          </Link>
+        )}
+        {project.links.website && (
+          <Link
+            href={project.links.website}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1"
+          >
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl cursor-pointer"
+              style={{ backgroundColor: project.color + '30', color: project.accentColor }}
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <line x1="2" y1="12" x2="22" y2="12" />
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+              </svg>
+              Play Online
+            </motion.button>
+          </Link>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function FeatureItem({
   color,
+  icon,
   title,
   description,
 }: {
   color: string;
+  icon?: string;
   title: string;
   description: string;
 }) {
@@ -624,19 +662,25 @@ function FeatureItem({
         className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
         style={{ backgroundColor: color + '30' }}
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke={color}
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M20 6L9 17l-5-5" />
-        </svg>
+        {icon ? (
+          <span className="text-xl leading-none" aria-hidden="true">
+            {icon}
+          </span>
+        ) : (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={color}
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+        )}
       </div>
       <div>
         <h3 className="text-white font-semibold mb-1">{title}</h3>

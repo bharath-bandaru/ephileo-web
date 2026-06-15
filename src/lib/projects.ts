@@ -9,6 +9,11 @@ export interface Project {
   accentColor: string;
   type: "game" | "app";
   status: "released" | "coming-soon";
+  features?: {
+    icon?: string;
+    title: string;
+    description: string;
+  }[];
   links?: {
     appStore?: string;
     playStore?: string;
@@ -22,13 +27,50 @@ export const projects: Project[] = [
     name: "Roamates",
     tagline: "Your journey, together",
     description:
-      "Split expenses, share live locations, and manage trips with your group. Track balances, settle up, and stay in sync — all in one app.",
+      "Split expenses, share live locations, and plan trips with your group — then take notes, schedule tasks, and chat it all out in one place. Track balances, settle up, keep your streak alive, and stay in sync. All in one app.",
     logo: "/projects/roamates/logo.png",
     banner: "/projects/roamates/banner.png",
     color: "#10B981",
     accentColor: "#34D399",
     type: "app",
     status: "released",
+    features: [
+      {
+        icon: "💬",
+        title: "Notes & Group Collab",
+        description:
+          "Drop it in your group, chat it out, and never go digging through 47 texts again.",
+      },
+      {
+        icon: "✅",
+        title: "Schedule Tasks",
+        description:
+          "Set the task, talk it out, and let it live rent-free in the app — not your brain.",
+      },
+      {
+        icon: "🔥",
+        title: "Streaks",
+        description:
+          "Not your average streak. Settle a split within 24 hrs and that's one. Keep it lit.",
+      },
+      {
+        icon: "🎨",
+        title: "Themes",
+        description: "Pick your vibe. Themes for every mood now live.",
+      },
+      {
+        icon: "😉",
+        title: "Chats & Topics",
+        description:
+          "Quick convo on any topic, no pressure. We're not reinventing chat here btw.",
+      },
+      {
+        icon: "🫶",
+        title: "Share",
+        description:
+          "Pull in your roomies, your besties, your group chat — we got y'all covered.",
+      },
+    ],
     links: {
       appStore: "https://apps.apple.com/us/app/roamates/id6757687270",
       playStore:
