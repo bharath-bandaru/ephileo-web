@@ -178,7 +178,7 @@ export default function ProjectPage() {
       </div>
 
       {/* Content Section */}
-      <div className="px-8 md:px-16">
+      <div className="px-8 md:px-16 pb-12 md:pb-0">
         <div className="max-w-6xl mx-auto">
           <div className="grid md:grid-cols-3 gap-12">
             {/* Main Content */}
