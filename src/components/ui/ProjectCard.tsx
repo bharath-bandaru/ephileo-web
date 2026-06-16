@@ -31,10 +31,11 @@ export default function ProjectCard({ project, index }: ProjectCardProps) {
         delay: index * 0.2,
         ease: [0.21, 0.47, 0.32, 0.98],
       }}
+      className="h-full"
     >
-      <Link href={`/projects/${project.id}`} onClick={handleClick}>
+      <Link href={`/projects/${project.id}`} onClick={handleClick} className="block h-full">
         <motion.div
-          className="group relative overflow-hidden rounded-3xl bg-[#0a1414] cursor-pointer"
+          className="group relative h-full flex flex-col overflow-hidden rounded-3xl bg-[#0a1414] cursor-pointer"
           whileHover={{ scale: 1.02 }}
           transition={{ duration: 0.3 }}
         >
@@ -52,7 +53,7 @@ export default function ProjectCard({ project, index }: ProjectCardProps) {
           </div>
 
           {/* Content */}
-          <div className="relative p-6">
+          <div className="relative flex flex-1 flex-col p-6">
             <div className="flex items-center gap-4 mb-4">
               <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-lg p-2 bg-black">
                 <Image
@@ -84,7 +85,7 @@ export default function ProjectCard({ project, index }: ProjectCardProps) {
             </p>
 
             {/* Type badge */}
-            <div className="mt-4 flex items-center gap-2">
+            <div className="mt-auto pt-4 flex items-center gap-2">
               <span
                 className="px-3 py-1 rounded-full text-xs font-medium"
                 style={{
