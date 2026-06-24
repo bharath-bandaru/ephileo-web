@@ -216,6 +216,19 @@ export default function ProjectPage() {
                 </div>
               </div>
 
+              {/* Roamates Post */}
+              {project.id === 'roamates' && (
+                <div className="rounded-2xl overflow-hidden mb-12">
+                  <Image
+                    src="/projects/roamates/roamates-post.jpg"
+                    alt={`${project.name} post`}
+                    width={1200}
+                    height={1200}
+                    className="w-full h-auto object-cover"
+                  />
+                </div>
+              )}
+
               {/* Features Section */}
               <h2 className="text-2xl font-bold text-white mb-6">Features</h2>
               <div className="space-y-4 mb-12">
