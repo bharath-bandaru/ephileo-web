@@ -1,4 +1,4 @@
-// Ephileo Repairs — a two-storey Hong Kong repair shop diorama, built at real-world scale (metres).
+// Ephileo Workshop — a two-storey miniature workshop diorama, built at real-world scale (metres).
 // Exports buildShop(), which returns the scene graph plus the handles the page needs (lights, hotspots, animated parts).
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
@@ -30,10 +30,13 @@ export async function buildShop(renderer, onProgress = () => {}) {
   const hdrP = new RGBELoader(manager).loadAsync('tex/night_1k.hdr');
   const modelP = Promise.all(MODELS.map((n) => gltfLoader.loadAsync('models/' + n + '.glb').then((g) => [n, g.scene])));
   const texCache = {};
+  const textureLoads = [];
   function tex(name, kind) {
     const key = name + '_' + kind;
     if (!texCache[key]) {
-      const t = texLoader.load('tex/' + key + '.jpg');
+      let resolve, reject;
+      textureLoads.push(new Promise((ok, fail) => { resolve = ok; reject = fail; }));
+      const t = texLoader.load('tex/' + key + '.jpg', resolve, undefined, reject);
       t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = maxAniso;
       if (kind === 'diff') t.colorSpace = THREE.SRGBColorSpace;
       texCache[key] = t;
@@ -69,7 +72,20 @@ export async function buildShop(renderer, onProgress = () => {}) {
   const shadowy = (o) => o.traverse((m) => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
   function rbox(w, h, d, mat, r = 0.01) {
     const rr = Math.max(0.0005, Math.min(r, w / 2 - 0.001, h / 2 - 0.001, d / 2 - 0.001));
-    return new THREE.Mesh(new RoundedBoxGeometry(w, h, d, 3, rr), mat);
+    const geometry = new RoundedBoxGeometry(w, h, d, 3, rr);
+    // Each box face gets the same physical tile size, including deep side walls
+    // and thin slab edges. A single BoxGeometry UV repeat stretches those faces.
+    if (mat.userData.kitDimensions) {
+      const [mapW, mapH] = mat.userData.kitDimensions;
+      const p = geometry.attributes.position, n = geometry.attributes.normal, uv = geometry.attributes.uv;
+      for (let i = 0; i < p.count; i++) {
+        const nx = Math.abs(n.getX(i)), ny = Math.abs(n.getY(i)), nz = Math.abs(n.getZ(i));
+        const u = nx > ny && nx > nz ? p.getZ(i) : p.getX(i);
+        const v = ny > nx && ny > nz ? p.getZ(i) : p.getY(i);
+        uv.setXY(i, u / mapW, v / mapH);
+      }
+    }
+    return new THREE.Mesh(geometry, mat);
   }
   function put(parent, obj, x, y, z, ry = 0, rx = 0, rz = 0) {
     obj.position.set(x, y, z); obj.rotation.set(rx, ry, rz); shadowy(obj); parent.add(obj); return obj;
@@ -102,7 +118,43 @@ export async function buildShop(renderer, onProgress = () => {}) {
     const p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m); p.receiveShadow = true; return p;
   }
   const M = (color, o = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.6, ...o });
-  const HANZI = '"PingFang HK", "PingFang TC", "Hiragino Sans CNS", "Noto Sans TC", "Microsoft JhengHei", sans-serif';
+  const HINDI = '"Noto Sans Devanagari", sans-serif';
+  const TELUGU = '"Noto Sans Telugu", sans-serif';
+  const INDIC = '"Noto Sans Devanagari", "Noto Sans Telugu", sans-serif';
+  function signText(c, text, x, y, maxWidth, fontSize, family = INDIC) {
+    c.save(); c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = `700 ${fontSize}px ${family}`;
+    const width = c.measureText(text).width;
+    if (width > maxWidth) c.font = `700 ${Math.floor(fontSize * maxWidth / width)}px ${family}`;
+    c.fillText(text, x, y); c.restore();
+  }
+
+  function agedPaint(color, initialSeed, metalness = 0.2) {
+    let seed = initialSeed; const rnd = () => ((seed = seed * 16807 % 2147483647) / 2147483647);
+    const c = document.createElement('canvas'); c.width = c.height = 512; const g = c.getContext('2d');
+    g.fillStyle = '#' + color.toString(16).padStart(6, '0'); g.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 95; i++) {
+      const x = rnd() * 512, y = rnd() * 512, r = 3 + rnd() * 14;
+      for (const ox of [-512, 0, 512]) for (const oy of [-512, 0, 512]) {
+        g.fillStyle = i % 3 ? 'rgba(58,49,36,0.24)' : 'rgba(200,185,145,0.38)';
+        g.beginPath(); g.ellipse(x + ox, y + oy, r, r * 0.45, rnd() * Math.PI, 0, Math.PI * 2); g.fill();
+      }
+    }
+    for (let i = 0; i < 9000; i++) {
+      g.fillStyle = i % 3 ? 'rgba(224,220,194,0.19)' : 'rgba(41,36,27,0.21)';
+      g.fillRect(rnd() * 512, rnd() * 512, 0.5 + rnd() * 2, 0.5 + rnd() * 2);
+    }
+    for (let i = 0; i < 160; i++) {
+      const x = rnd() * 512, y = rnd() * 512;
+      g.strokeStyle = i % 2 ? 'rgba(222,215,190,0.3)' : 'rgba(53,45,29,0.3)'; g.lineWidth = 0.6;
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x + 4 + rnd() * 20, y + rnd() * 4); g.stroke();
+    }
+    const map = new THREE.CanvasTexture(c); map.colorSpace = THREE.SRGBColorSpace;
+    map.wrapS = map.wrapT = THREE.RepeatWrapping; map.anisotropy = maxAniso;
+    const m = M(0xffffff, { map, roughness: 0.84, metalness });
+    m.userData.kitDimensions = [0.9, 0.9]; m.userData.weatherStrength = 0.85;
+    return m;
+  }
 
   /* ---------- materials ---------- */
   const mat = {
@@ -115,7 +167,6 @@ export async function buildShop(renderer, onProgress = () => {}) {
     floorTiles: pbr('square_tiles_02', 4, 2, { color: 0xD0C8BC }),
     shutter: pbr('painted_metal_shutter', 1, 2.4, { color: 0x6E95C8, metalness: 0.3 }),
     shutterShop: pbr('painted_metal_shutter', 2, 2.4, { color: 0x6E95C8, metalness: 0.3 }),
-    awning: pbr('box_profile_metal_sheet', 3, 1, { noMap: true, color: 0x2E9E6E, metalness: 0.1, normal: 1.4 }),
     greenMetal: pbr('green_metal_rust', 1, 1, { metalness: 0.4 }),
     wood: pbr('wood_table_worn', 2, 0.6),
     woodShelf: pbr('wood_table_worn', 1, 0.4, { color: 0x9A8270 }),
@@ -142,42 +193,68 @@ export async function buildShop(renderer, onProgress = () => {}) {
   };
 
 
-  // printed-kit style tiles: small mosaic squares, dark grout, per-tile colour variation, baked grime
+  // Seamless ceramic mosaics: shallow grout, subtle glaze variation and worn print.
   function kitTiles(o) {
     const N = 1024, cell = o.cell, grout = o.grout ?? 3;
     const c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d');
     const b = document.createElement('canvas'); b.width = b.height = N; const gb = b.getContext('2d');
+    const roughCanvas = document.createElement('canvas'); roughCanvas.width = roughCanvas.height = N; const grh = roughCanvas.getContext('2d');
     g.fillStyle = o.groutColor; g.fillRect(0, 0, N, N); gb.fillStyle = '#000'; gb.fillRect(0, 0, N, N);
+    grh.fillStyle = '#F4F4F4'; grh.fillRect(0, 0, N, N);
     let seed = o.seed ?? 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
     for (let y = 0; y < N; y += cell) for (let x = 0; x < N; x += cell) {
       const base = o.colors[(rnd() * o.colors.length) | 0];
-      const v = 0.86 + rnd() * 0.22;
+      const v = 0.96 + rnd() * 0.08;
       g.fillStyle = `rgb(${base[0] * v | 0},${base[1] * v | 0},${base[2] * v | 0})`;
       g.fillRect(x + grout / 2, y + grout / 2, cell - grout, cell - grout);
-      gb.fillStyle = `rgb(${200 + rnd() * 40 | 0},${200 + rnd() * 40 | 0},${200 + rnd() * 40 | 0})`;
+      const height = 208 + rnd() * 12 | 0;
+      gb.fillStyle = `rgb(${height},${height},${height})`;
       gb.fillRect(x + grout / 2, y + grout / 2, cell - grout, cell - grout);
+      g.strokeStyle = 'rgba(255,255,238,0.13)'; g.lineWidth = 1;
+      g.strokeRect(x + grout / 2 + 1, y + grout / 2 + 1, cell - grout - 2, cell - grout - 2);
+      const rough = 170 + rnd() * 45 | 0; grh.fillStyle = `rgb(${rough},${rough},${rough})`;
+      grh.fillRect(x + grout / 2, y + grout / 2, cell - grout, cell - grout);
+      if (o.wear && rnd() < 0.1) {
+        // Small chipped corners and hairline cracks, rather than deep tile relief.
+        g.fillStyle = '#A6A18C'; g.beginPath(); g.moveTo(x + 2, y + 2);
+        g.lineTo(x + 4 + rnd() * 6, y + 2); g.lineTo(x + 2, y + 4 + rnd() * 7); g.fill();
+        if (rnd() < 0.5) {
+          g.strokeStyle = 'rgba(83,78,58,0.32)'; g.lineWidth = 0.7; g.beginPath();
+          g.moveTo(x + cell * 0.22, y + 3); g.lineTo(x + cell * 0.38, y + cell * 0.46);
+          g.lineTo(x + cell * 0.25, y + cell - 3); g.stroke();
+        }
+      }
     }
     // grime: soft dark blotches and vertical drips baked into the print
     for (let i = 0; i < (o.grime ?? 40); i++) {
       const x = rnd() * N, y = rnd() * N, r = 30 + rnd() * 120;
-      const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(36,32,24,0.36)'); gr.addColorStop(1, 'rgba(36,32,24,0)');
+      const gr = g.createRadialGradient(x, y, 0, x, y, r); gr.addColorStop(0, 'rgba(62,57,43,0.10)'); gr.addColorStop(1, 'rgba(62,57,43,0)');
       g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
     }
     for (let i = 0; i < (o.drips ?? 26); i++) {
       const x = rnd() * N, y = rnd() * N * 0.6, w = 4 + rnd() * 14, h = 80 + rnd() * 320;
-      const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, 'rgba(40,34,26,0.5)'); gr.addColorStop(1, 'rgba(40,34,26,0)');
+      const gr = g.createLinearGradient(0, y, 0, y + h); gr.addColorStop(0, 'rgba(62,57,43,0.16)'); gr.addColorStop(1, 'rgba(62,57,43,0)');
       g.fillStyle = gr; g.fillRect(x, y, w, h);
+    }
+    for (let i = 0; i < 22000; i++) {
+      g.fillStyle = rnd() > 0.5 ? 'rgba(255,250,232,0.07)' : 'rgba(55,50,40,0.05)';
+      g.fillRect(rnd() * N, rnd() * N, 1, 1);
     }
     const map = new THREE.CanvasTexture(c); map.colorSpace = THREE.SRGBColorSpace; map.wrapS = map.wrapT = THREE.RepeatWrapping; map.anisotropy = maxAniso;
     const bump = new THREE.CanvasTexture(b); bump.wrapS = bump.wrapT = THREE.RepeatWrapping; bump.anisotropy = maxAniso;
-    return { map, bump, metres: N / cell * o.size };
+    const roughness = new THREE.CanvasTexture(roughCanvas); roughness.wrapS = roughness.wrapT = THREE.RepeatWrapping; roughness.anisotropy = maxAniso;
+    return { map, bump, roughness, metres: N / cell * o.size };
   }
-  const WALL = kitTiles({ cell: 24, size: 0.06, groutColor: '#2E322F', colors: [[156, 164, 158], [142, 152, 148], [166, 166, 156], [130, 142, 140], [150, 144, 132], [170, 174, 166]], grime: 110, drips: 70 });
-  const ROOF = kitTiles({ cell: 40, grout: 4, size: 0.1, groutColor: '#1F4A48', colors: [[96, 206, 200], [84, 190, 186], [110, 214, 206], [76, 176, 174]], grime: 50, drips: 0, seed: 23 });
+  const WALL = kitTiles({ cell: 32, grout: 1.5, size: 0.105, groutColor: '#A5A393', colors: [[207, 203, 183], [201, 199, 181], [213, 208, 190], [193, 197, 180]], grime: 34, drips: 20 });
+  const ROOF = kitTiles({ cell: 32, grout: 2, size: 0.11, groutColor: '#497F79', colors: [[78, 155, 145], [82, 163, 150], [86, 166, 154], [76, 157, 148]], grime: 24, drips: 0, seed: 23 });
+  const UPPER_WALL = kitTiles({ cell: 32, grout: 1.8, size: 0.095, groutColor: '#92937F', colors: [[203, 198, 177], [194, 191, 173], [207, 200, 181], [185, 189, 169]], grime: 62, drips: 42, wear: true, seed: 53 });
   const PAVE = kitTiles({ cell: 128, grout: 5, size: 0.32, groutColor: '#262A28', colors: [[92, 98, 94], [84, 90, 88], [100, 104, 98], [78, 86, 84]], grime: 60, drips: 0, seed: 11 });
   function kitMat(T, w, h, color = 0xffffff, o = {}) {
     const rep = (t) => { const c = t.clone(); c.repeat.set(w / T.metres, h / T.metres); return c; };
-    return new THREE.MeshStandardMaterial({ map: rep(T.map), bumpMap: rep(T.bump), bumpScale: o.bump ?? 1.6, color, roughness: o.roughness ?? 0.8, metalness: 0 });
+    const material = new THREE.MeshStandardMaterial({ map: rep(T.map), bumpMap: rep(T.bump), roughnessMap: rep(T.roughness), bumpScale: o.bump ?? 0.006, color, roughness: o.roughness ?? 0.82, metalness: 0 });
+    material.userData.kitDimensions = [w, h];
+    material.userData.weatherStrength = 0.55;
+    return material;
   }
   const ventTex = canvasTex(256, 256, (c, w, h) => { c.fillStyle = '#9BA19C'; c.fillRect(0, 0, w, h); c.fillStyle = '#2B302D'; for (let y = 18; y < h - 10; y += 22) c.fillRect(18, y, w - 36, 10); });
   const curtainTex = canvasTex(256, 256, (c, w, h) => {
@@ -191,10 +268,10 @@ export async function buildShop(renderer, onProgress = () => {}) {
      street (x+) around a corner post. Pavement wraps both streets.
      ===================================================================== */
   const X0 = -4.0, XL = -2.0, X1 = 1.2;   // left wing | main block | right face
-  const ZB = -4.0, Z0 = 0.6;              // back face | front face
+  const ZB = -3.35, Z0 = 0.6;              // back face | front face
   const H1 = 3.0, EAVE = 4.55, OH = 0.35;  // ground storey, eave, upper-floor overhang
   const LWH = 3.5;                         // left wing height
-  const AX1 = 2.7, AZ1 = -2.3, AH = 2.7;   // back-right annex
+  const AX1 = 2.45, AZ1 = -2.3, AH = 2.7;   // back-right annex
   const ZS = -1.6;                         // shop back wall
   const tileMat = (w, h, color = 0xffffff) => kitMat(WALL, Math.max(0.3, w), Math.max(0.3, h), color === 0xB4C0BE || color === 0xC4C9C2 ? 0xffffff : color);
   const plasterMat = (w, h, color = 0xB2BEBE) => pbr('plastered_wall_02', Math.max(0.5, w * 0.7), Math.max(0.5, h * 0.7), { color });
@@ -213,18 +290,134 @@ export async function buildShop(renderer, onProgress = () => {}) {
     for (const bx of [-0.59, 0.59]) for (let k = 0; k < 4; k++) bar(0.018, 1.14, 0.018, bx, 0.01, -0.18 + k * 0.13);
     return g;
   }
-  function corrugated(w, d) {
-    const g = new THREE.PlaneGeometry(w, d, Math.round(w * 60), 1); const p = g.attributes.position;
-    for (let i = 0; i < p.count; i++) p.setZ(i, Math.sin(p.getX(i) * 40) * 0.012);
-    g.computeVertexNormals(); return g;
+  // Matte, printed miniature canopies with fine cloth grain and shallow pressed ribs.
+  function awningSurface(w, depth, initialSeed) {
+    const width = Math.min(1536, Math.max(512, Math.round(w * 750)));
+    const height = Math.max(256, Math.round(depth * 1100));
+    const colorCanvas = document.createElement('canvas'); colorCanvas.width = width; colorCanvas.height = height;
+    const bumpCanvas = document.createElement('canvas'); bumpCanvas.width = width; bumpCanvas.height = height;
+    const roughCanvas = document.createElement('canvas'); roughCanvas.width = width; roughCanvas.height = height;
+    const c = colorCanvas.getContext('2d'), b = bumpCanvas.getContext('2d'), r = roughCanvas.getContext('2d');
+    let seed = initialSeed; const rnd = () => ((seed = seed * 16807 % 2147483647) / 2147483647);
+    c.fillStyle = '#2F7656'; c.fillRect(0, 0, width, height);
+    b.fillStyle = '#808080'; b.fillRect(0, 0, width, height);
+    r.fillStyle = '#E8E8E8'; r.fillRect(0, 0, width, height);
+    const faded = c.createLinearGradient(0, 0, 0, height);
+    faded.addColorStop(0, 'rgba(14,43,29,0.19)'); faded.addColorStop(0.45, 'rgba(129,164,132,0.12)');
+    faded.addColorStop(1, 'rgba(87,87,45,0.22)'); c.fillStyle = faded; c.fillRect(0, 0, width, height);
+    // Fine interwoven fibres, rather than the old broad metallic normal-map stripes.
+    for (let y = 0; y < height; y += 3) {
+      c.fillStyle = y % 6 ? 'rgba(19,45,28,0.08)' : 'rgba(199,204,146,0.13)'; c.fillRect(0, y, width, 0.65);
+      b.fillStyle = y % 6 ? '#797979' : '#898989'; b.fillRect(0, y, width, 0.6);
+    }
+    for (let x = 0; x < width; x += 4) {
+      c.fillStyle = 'rgba(199,204,146,0.06)'; c.fillRect(x, 0, 0.6, height);
+    }
+    for (let i = 0; i < width * height / 22; i++) {
+      const x = rnd() * width, y = rnd() * height;
+      c.fillStyle = rnd() > 0.4 ? 'rgba(215,211,151,0.16)' : 'rgba(16,41,27,0.17)';
+      c.fillRect(x, y, 0.5 + rnd() * 1.6, 0.5 + rnd() * 1.3);
+    }
+    // Peeling paint is concentrated at the exposed front edge and mounting corners.
+    for (let i = 0; i < 170 * w; i++) {
+      const x = rnd() * width, y = height * (0.78 + rnd() * 0.22), size = 1 + rnd() * 6;
+      c.fillStyle = i % 4 ? 'rgba(174,171,114,0.48)' : 'rgba(58,51,29,0.52)';
+      c.fillRect(x, y, size, 0.6 + rnd() * 2.5);
+      b.fillStyle = '#626262'; b.fillRect(x, y, size, 1);
+      r.fillStyle = '#FAFAFA'; r.fillRect(x, y, size, 3);
+    }
+    for (let i = 0; i < 18; i++) {
+      const x = rnd() * width, y = rnd() * height, radius = 14 + rnd() * 55;
+      const stain = c.createRadialGradient(x, y, 0, x, y, radius);
+      stain.addColorStop(0, 'rgba(33,41,22,0.18)'); stain.addColorStop(1, 'rgba(33,41,22,0)');
+      c.fillStyle = stain; c.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+    }
+    const texture = (canvas, srgb = false) => {
+      const t = new THREE.CanvasTexture(canvas); t.anisotropy = maxAniso;
+      if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t;
+    };
+    const m = M(0xBCCBC1, { map: texture(colorCanvas, true), bumpMap: texture(bumpCanvas), roughnessMap: texture(roughCanvas), bumpScale: 0.0012, roughness: 0.96, metalness: 0, side: THREE.DoubleSide });
+    m.userData.weatherStrength = 0.5; return m;
   }
-  const awnMat = mat.awning.clone(); awnMat.side = THREE.DoubleSide;
-  // awning attached to a wall; (x, y, z) = middle of the wall line, ry = wall facing direction
+  function corrugated(w, d) {
+    const geometry = new THREE.PlaneGeometry(w, d, Math.max(12, Math.ceil(w / 0.07) * 6), 6);
+    const p = geometry.attributes.position;
+    for (let i = 0; i < p.count; i++) {
+      const x = p.getX(i), y = p.getY(i);
+      p.setZ(i, Math.sin(x / 0.07 * Math.PI * 2) * 0.003 + Math.sin(x * 8 + y * 4) * 0.0015);
+    }
+    geometry.computeVertexNormals(); return geometry;
+  }
+  const awningFrame = agedPaint(0x365441, 277, 0.12);
+  const awningCutEdge = agedPaint(0x9B9971, 281, 0);
+  const awningPatch = agedPaint(0x3E4434, 283, 0.15);
+  const awningBolt = M(0xB0B39B, { roughness: 0.7, metalness: 0.35 });
+  const awningBoltGeometry = new THREE.SphereGeometry(1, 8, 6);
+  const awningThread = M(0x93A38C, { roughness: 1 });
+  const awningStitchGeometry = new THREE.BoxGeometry(0.011, 0.0018, 0.0015);
+  let awningIndex = 0;
+  // All dimensions are measured from the wall, so the hem and braces fit short and deep canopies.
   function awning(x, y, z, ry, w, depth = 0.7) {
-    const g = new THREE.Group(); put(bld, g, x, y, z, ry);
-    put(g, new THREE.Mesh(corrugated(w, depth), awnMat), 0, 0, 0.3, 0, -Math.PI / 2 + 0.42);
-    put(g, rbox(w + 0.02, 0.05, 0.04, mat.greenMetal, 0.01), 0, -0.15, 0.62);
-    for (const ex of [-w / 2 + 0.05, w / 2 - 0.05]) put(g, tube([[ex, 0.12, 0], [ex, -0.14, 0.6]], 0.01, mat.iron, 2), 0, 0, 0);
+    const g = new THREE.Group(); g.name = 'detailed-green-awning'; put(bld, g, x, y, z, ry);
+    const pitch = 0.29, frontY = -depth * Math.sin(pitch), frontZ = depth * Math.cos(pitch);
+    const roof = new THREE.Group(); roof.name = 'awning-pitched-cover'; put(g, roof, 0, 0, 0, 0, pitch);
+    const surface = awningSurface(w, depth, 307 + awningIndex++ * 47);
+    const cover = put(roof, new THREE.Mesh(corrugated(w, depth), surface), 0, 0, depth / 2, 0, -Math.PI / 2);
+    cover.name = 'weathered-green-cover';
+    // Exposed miniature card edges, folded hems, and underside cross members.
+    for (const xx of [-w / 2, w / 2]) put(roof, rbox(0.019, 0.021, depth, awningCutEdge, 0.002), xx, -0.008, depth / 2);
+    for (const zz of [0.012, depth / 2, depth - 0.013]) put(roof, rbox(w, 0.026, 0.025, awningFrame, 0.003), 0, -0.018, zz);
+    put(roof, rbox(w + 0.025, 0.015, 0.02, awningFrame, 0.003), 0, 0.002, depth);
+    const panels = Math.max(2, Math.ceil(w / 0.55));
+    for (let i = 1; i < panels; i++) {
+      const xx = -w / 2 + w * i / panels;
+      put(roof, rbox(0.013, 0.009, depth - 0.022, awningFrame, 0.002), xx, 0.006, depth / 2);
+    }
+    // Scallops have slightly uneven cut edges and a pale, visible core along the thickness.
+    const hang = Math.min(0.145, depth * 0.21 + 0.03), scallops = Math.max(6, Math.round(w / 0.09)), sw = w / scallops;
+    const shape = new THREE.Shape(); shape.moveTo(-w / 2, 0); shape.lineTo(w / 2, 0); shape.lineTo(w / 2, -hang * 0.58);
+    for (let i = scallops; i > 0; i--) {
+      const wear = Math.sin(i * 2.37) * 0.004;
+      shape.quadraticCurveTo(-w / 2 + (i - 0.5) * sw, -hang * 1.37 + wear, -w / 2 + (i - 1) * sw, -hang * 0.58 + wear);
+    }
+    shape.closePath();
+    const edgeGeo = new THREE.ExtrudeGeometry(shape, { depth: 0.009, bevelEnabled: false });
+    const uv = edgeGeo.attributes.uv, pos = edgeGeo.attributes.position;
+    for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) / w + 0.5, pos.getY(i) / hang + 1);
+    const hem = put(g, new THREE.Mesh(edgeGeo, [surface, awningCutEdge]), 0, frontY + 0.004, frontZ + 0.003);
+    hem.name = 'scalloped-awning-hem';
+    const stitchCount = Math.max(8, Math.floor(w / 0.034));
+    const stitches = new THREE.InstancedMesh(awningStitchGeometry, awningThread, stitchCount);
+    stitches.name = 'awning-hem-stitching';
+    for (let i = 0; i < stitchCount; i++) {
+      const xx = -w / 2 + w * (i + 0.5) / stitchCount;
+      stitches.setMatrixAt(i, new THREE.Matrix4().makeTranslation(xx, frontY - 0.015, frontZ + 0.013));
+    }
+    stitches.instanceMatrix.needsUpdate = true; g.add(stitches);
+    // Triangular iron supports with wall plates and screw heads.
+    const brackets = w > 1.4 ? [-w / 2 + 0.08, 0, w / 2 - 0.08] : [-w / 2 + 0.055, w / 2 - 0.055];
+    for (const xx of brackets) {
+      put(g, rbox(0.048, 0.19 - frontY, 0.025, awningFrame, 0.004), xx, (frontY - 0.29) / 2, 0.022);
+      put(g, tube([[xx, frontY - 0.22, 0.035], [xx, frontY - 0.025, frontZ - 0.04]], 0.009, awningFrame, 2), 0, 0, 0);
+      put(g, tube([[xx, -0.03, 0.035], [xx, frontY - 0.025, frontZ - 0.04]], 0.008, awningFrame, 2), 0, 0, 0);
+      for (const yy of [-0.08, frontY - 0.19]) put(g, new THREE.Mesh(awningBoltGeometry, awningBolt), xx, yy, 0.038).scale.set(0.006, 0.006, 0.003);
+    }
+    // Reinforcing tabs and instanced washers along the rear and front attachment lines.
+    const washers = [], fastenerCount = Math.max(4, Math.ceil(w / 0.18));
+    for (let i = 0; i < fastenerCount; i++) {
+      const xx = -w / 2 + 0.06 + (w - 0.12) * i / (fastenerCount - 1);
+      for (const zz of [0.035, depth - 0.035]) washers.push([xx, 0.008, zz]);
+    }
+    for (let i = 0; i < Math.max(1, Math.round(w / 0.9)); i++) {
+      const xx = -w / 2 + w * (i + 0.5) / Math.max(1, Math.round(w / 0.9));
+      put(roof, rbox(0.038, 0.006, 0.078, awningPatch, 0.002), xx, 0.008, depth * 0.27);
+      washers.push([xx, 0.014, depth * 0.27]);
+    }
+    const fasteners = new THREE.InstancedMesh(awningBoltGeometry, awningBolt, washers.length);
+    fasteners.name = 'awning-seam-fasteners';
+    washers.forEach(([xx, yy, zz], i) => fasteners.setMatrixAt(i, new THREE.Matrix4().compose(new THREE.Vector3(xx, yy, zz), new THREE.Quaternion(), new THREE.Vector3(0.0055, 0.0025, 0.0055))));
+    fasteners.instanceMatrix.needsUpdate = true; roof.add(fasteners);
+    g.userData.cover = cover; g.userData.hem = hem;
     return g;
   }
   function lightbox(parent, x, y, z, ry, w, h, tex, glow = 0.3) {
@@ -274,12 +467,13 @@ export async function buildShop(renderer, onProgress = () => {}) {
   }
 
   /* ---------- plinth + L-shaped pavement ---------- */
-  const pave = put(root, rbox(8.4, 0.2, 6.8, kitMat(PAVE, 8.4, 6.8), 0.02), -0.2, -0.1, -1.0); support.push(pave);
-  put(root, rbox(8.43, 0.025, 6.83, mat.baseRed, 0.006), -0.2, -0.2, -1.0);
-  put(root, rbox(8.46, 0.07, 6.86, mat.baseGreen, 0.01), -0.2, -0.25, -1.0);
+  const padDepth = Z0 - ZB + 2.2, padZ = (ZB + 2.0) / 2;
+  const pave = put(root, rbox(8.4, 0.2, padDepth, kitMat(PAVE, 8.4, padDepth), 0.02), -0.2, -0.1, padZ); support.push(pave);
+  put(root, rbox(8.43, 0.025, padDepth + 0.03, mat.baseRed, 0.006), -0.2, -0.2, padZ);
+  put(root, rbox(8.46, 0.07, padDepth + 0.06, mat.baseGreen, 0.01), -0.2, -0.25, padZ);
   const kerb = M(0x8E8A82, { roughness: 0.8 });
   put(root, rbox(8.4, 0.05, 0.2, kerb, 0.01), -0.2, 0.025, 2.3);
-  put(root, rbox(0.2, 0.05, 6.8, kerb, 0.01), 3.9, 0.025, -1.0);
+  put(root, rbox(0.2, 0.05, padDepth, kerb, 0.01), 3.9, 0.025, padZ);
   const drain = put(root, rbox(0.5, 0.012, 0.3, mat.iron, 0.004), 1.0, 0.006, 2.05);
   const manhole = put(root, new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.015, 40), M(0x3E4140, { roughness: 0.6, metalness: 0.5 })), 3.2, 0.008, -0.6);
 
@@ -287,13 +481,32 @@ export async function buildShop(renderer, onProgress = () => {}) {
 
   /* ---------- left wing: tall single storey, flat roof stacked with units ---------- */
   const lwW = XL - X0, lwX = (X0 + XL) / 2, depth = Z0 - ZB, midZ = (Z0 + ZB) / 2;
-  put(bld, rbox(0.15, LWH, depth, plasterMat(depth, LWH), 0.01), X0, LWH / 2, midZ);
+  // The outer left wing has its own low eave and rising cap, as marked in the reference.
+  const leftCapFrontZ = Z0 + 0.15, leftCapBackZ = Z0 - 1.35;
+  const leftLowY = LWH - 0.29, leftHighY = LWH + 0.18, leftCapWidth = 0.52;
+  const leftProfile = new THREE.Shape();
+  leftProfile.moveTo(Z0, 0); leftProfile.lineTo(ZB, 0); leftProfile.lineTo(ZB, leftHighY);
+  leftProfile.lineTo(leftCapBackZ, leftHighY); leftProfile.lineTo(Z0, leftLowY); leftProfile.closePath();
+  const leftGeo = new THREE.ExtrudeGeometry(leftProfile, { depth: 0.15, bevelEnabled: false });
+  const leftUV = leftGeo.attributes.uv, leftPos = leftGeo.attributes.position;
+  for (let i = 0; i < leftPos.count; i++) leftUV.setXY(i, leftPos.getX(i) / depth, leftPos.getY(i) / LWH);
+  put(bld, new THREE.Mesh(leftGeo, tileMat(depth, LWH)), X0 + 0.075, 0, 0, -Math.PI / 2);
+  const leftCap = new THREE.Group(); leftCap.name = 'left-wing-sloping-cap';
+  const leftRun = leftCapFrontZ - leftCapBackZ, leftRise = leftHighY - leftLowY, leftLength = Math.hypot(leftRun, leftRise);
+  put(bld, leftCap, X0 + 0.1, (leftLowY + leftHighY) / 2 + 0.035, (leftCapFrontZ + leftCapBackZ) / 2, 0, Math.atan2(leftRise, leftRun));
+  const leftCapPaint = agedPaint(0x58766A, 193, 0.1), leftCutEdge = agedPaint(0x655A4C, 181, 0.05);
+  put(leftCap, rbox(leftCapWidth, 0.09, leftLength, leftCapPaint, 0.006), 0, 0, 0);
+  for (const xx of [-leftCapWidth / 2, leftCapWidth / 2]) put(leftCap, rbox(0.035, 0.1, leftLength + 0.08, leftCutEdge, 0.003), xx, 0, 0);
+  put(leftCap, rbox(leftCapWidth + 0.06, 0.09, 0.05, leftCutEdge, 0.004), 0, 0, leftLength / 2);
+  put(bld, rbox(leftCapWidth, 0.09, leftCapBackZ - ZB + 0.08, leftCapPaint, 0.006), X0 + 0.1, leftHighY + 0.035, (leftCapBackZ + ZB) / 2);
   put(bld, rbox(lwW, LWH, 0.15, plasterMat(lwW, LWH), 0.01), lwX, LWH / 2, ZB);
-  put(bld, rbox(lwW + 0.1, 0.5, 0.2, tileMat(lwW, 0.5), 0.02), lwX, 3.25, Z0);
-  put(bld, rbox(lwW + 0.2, 0.14, 0.3, mat.band, 0.02), lwX, LWH + 0.06, Z0);
+  put(bld, rbox(lwW - 0.26, 0.5, 0.2, tileMat(lwW - 0.26, 0.5), 0.012), lwX + 0.18, 3.25, Z0);
+  put(bld, rbox(lwW - 0.22, 0.14, 0.3, mat.band, 0.012), lwX + 0.19, LWH + 0.06, Z0);
   for (const [x, w] of [[X0 + 0.05, 0.2], [-2.9, 0.14], [XL - 0.02, 0.2]]) put(bld, rbox(w, 2.88, 0.26, tileMat(w, 2.88), 0.015), x, 1.44, Z0);
-  const lwRoof = put(bld, rbox(lwW + 0.1, 0.16, depth + 0.1, mat.roof, 0.02), lwX, LWH + 0.08, midZ); support.push(lwRoof);
-  put(bld, rbox(0.14, 0.36, depth + 0.1, mat.band, 0.02), X0, LWH + 0.3, midZ);
+  const lwRoof = put(bld, rbox(lwW - 0.32, 0.16, depth + 0.1, mat.roof, 0.012), lwX + 0.21, LWH + 0.08, midZ); support.push(lwRoof);
+  // Keep the raised rim behind the left ramp so it cannot hide the sloping silhouette.
+  put(bld, rbox(0.1, 0.15, leftCapBackZ - ZB + 0.08, leftCutEdge, 0.008), X0 - 0.16, leftHighY + 0.08, (leftCapBackZ + ZB) / 2);
+  put(leftCap, rbox(0.1, 0.15, leftLength + 0.06, leftCutEdge, 0.008), -leftCapWidth / 2, 0.04, 0);
   put(bld, rbox(lwW + 0.1, 0.36, 0.14, mat.band, 0.02), lwX, LWH + 0.3, ZB);
   const louvre = (x, y, z, ry = 0) => {
     const g = new THREE.Group(); put(bld, g, x, y, z, ry);
@@ -309,17 +522,29 @@ export async function buildShop(renderer, onProgress = () => {}) {
     return g;
   };
   const RY = LWH + 0.16;
-  unit(-3.5, RY, -0.1, 0.72, 1.25, 0.62); unit(-2.7, RY, -0.05, 0.72, 0.85, 0.62, 0.04); unit(-3.1, RY, -1.0, 1.4, 0.6, 0.5);
-  unit(-2.45, RY, -1.2, 0.5, 1.05, 0.5);
-  // set-back upper box on the wing
-  const lwBox = put(bld, rbox(1.75, 1.15, 1.9, tileMat(1.75, 1.15, 0xC8D2CE), 0.02), lwX + 0.05, RY + 0.575, -2.9);
-  put(bld, rbox(1.85, 0.12, 2.0, mat.band, 0.02), lwX + 0.05, RY + 1.2, -2.9);
-  windowWithCage(bld, lwX - 0.2, RY + 0.6, -1.95 + 0.09, 0, false, 0.7);
-  unit(lwX + 0.4, RY + 1.26, -3.0, 0.7, 0.55, 0.6, 0.2);
+  const utilityCream = agedPaint(0xC4C3AF, 29, 0.14);
+  utilityCream.userData.weatherStrength = 0.85;
+  const utilityBlue = agedPaint(0x3A7076, 41, 0.22);
+  utilityBlue.userData.weatherStrength = 0.75;
+  function rooftopStack(x, z, h) {
+    const stack = new THREE.Group(); stack.name = 'stacked-rooftop-utility'; put(bld, stack, x, RY, z);
+    for (let i = 0; i < 3; i++) {
+      const sh = h / 3, yy = sh * (i + 0.5);
+      put(stack, rbox(0.62, sh - 0.025, 0.55, utilityCream, 0.008), 0, yy, 0);
+      put(stack, rbox(0.085, sh, 0.58, utilityBlue, 0.004), 0.24, yy, 0);
+      put(stack, rbox(0.69, 0.065, 0.62, utilityCream, 0.004), 0, sh * i + 0.045, 0.012);
+      for (const xx of [-0.2, -0.14, -0.08]) put(stack, rbox(0.021, 0.045, 0.012, mat.pipeDark, 0.003), xx, sh * i + 0.13, 0.287);
+      put(stack, rbox(0.075, 0.095, 0.08, utilityBlue, 0.004), -0.3, yy, 0.24);
+      put(stack, rbox(0.11, 0.055, 0.045, mat.iron, 0.004), 0.21, yy + sh * 0.25, 0.29);
+    }
+    put(stack, rbox(0.69, 0.07, 0.61, mat.roof, 0.006), 0, h + 0.025, 0);
+  }
+  rooftopStack(-3.32, -0.38, 1.27); rooftopStack(-2.55, -0.43, 1.32);
+  unit(-3.15, RY, -1.45, 0.8, 0.5, 0.48);
   put(bld, tube([[-3.5, RY + 0.6, 0.25], [-3.5, RY + 0.7, 0.55], [-3.5, RY - 0.05, Z0 + 0.14], [-3.1, RY - 0.05, Z0 + 0.16], [XL, RY - 0.05, Z0 + 0.16]], 0.035, mat.pipe, 40), 0, 0, 0);
   put(bld, tube([[-2.7, RY + 0.5, 0.25], [-2.7, RY + 0.4, Z0 + 0.1], [-2.7, RY - 0.15, Z0 + 0.2], [XL, RY - 0.15, Z0 + 0.2]], 0.03, mat.pipeDark, 40), 0, 0, 0);
-  put(bld, tube([[-3.8, RY, -3.7], [-3.8, RY + 2.1, -3.7]], 0.015, mat.pipeDark, 4), 0, 0, 0);
-  put(bld, tube([[-4.05, RY + 1.85, -3.7], [-3.55, RY + 1.85, -3.7]], 0.01, mat.pipeDark, 4), 0, 0, 0);
+  put(bld, tube([[-3.8, RY, ZB + 0.3], [-3.8, RY + 2.1, ZB + 0.3]], 0.015, mat.pipeDark, 4), 0, 0, 0);
+  put(bld, tube([[-4.05, RY + 1.85, ZB + 0.3], [-3.55, RY + 1.85, ZB + 0.3]], 0.01, mat.pipeDark, 4), 0, 0, 0);
   // shutter bay + glass cabinet bay
   put(bld, rbox(0.86, 2.5, 0.04, mat.shutter, 0.004), -3.43, 1.27, Z0 - 0.1);
   put(bld, rbox(0.9, 0.3, 0.32, mat.greenMetal, 0.02), -3.43, 2.66, Z0 - 0.04);
@@ -328,12 +553,12 @@ export async function buildShop(renderer, onProgress = () => {}) {
   const poster = (w, h, draw, x, y, z, ry = 0, rz = 0) => { const p = decal(w, h, canvasTex(Math.round(w * 1000), Math.round(h * 1000), draw)); p.position.set(x, y, z); p.rotation.set(0, ry, rz); bld.add(p); return p; };
   poster(0.36, 0.5, (c, w, h) => {
     c.fillStyle = '#F2E9D3'; c.fillRect(0, 0, w, h); c.fillStyle = '#B3221C'; c.fillRect(0, 0, w, 110);
-    c.fillStyle = '#F2E9D3'; c.font = '700 66px ' + HANZI; c.textAlign = 'center'; c.fillText('手機維修', w / 2, 80);
+    c.fillStyle = '#F2E9D3'; c.textAlign = 'center'; signText(c, 'मोबाइल रिपेयर', w / 2, 62, w - 28, 50, HINDI);
     c.fillStyle = '#1B1A17'; c.font = '600 30px "IBM Plex Mono", monospace'; c.fillText('PHONE REPAIR', w / 2, 165);
     c.font = '400 24px "IBM Plex Mono", monospace'; ['SCREENS', 'BATTERIES', 'CHARGING PORTS', 'WATER DAMAGE'].forEach((t, i) => c.fillText(t, w / 2, 230 + i * 42));
     c.fillStyle = '#B3221C'; c.font = '700 40px "IBM Plex Mono", monospace'; c.fillText('ASK INSIDE', w / 2, 460);
   }, -3.55, 1.45, Z0 - 0.076, 0, 0.02);
-  poster(0.28, 0.2, (c, w, h) => { c.fillStyle = '#E8D36A'; c.fillRect(0, 0, w, h); c.fillStyle = '#1B1A17'; c.font = '700 64px ' + HANZI; c.textAlign = 'center'; c.fillText('收購', w / 2, 90); c.font = '600 24px "IBM Plex Mono", monospace'; c.fillText('OLD CONSOLES', w / 2, 140); c.fillText('& TVs', w / 2, 175); }, -3.2, 1.85, Z0 - 0.076, 0, -0.05);
+  poster(0.28, 0.2, (c, w, h) => { c.fillStyle = '#E8D36A'; c.fillRect(0, 0, w, h); c.fillStyle = '#1B1A17'; c.textAlign = 'center'; signText(c, 'కొనుగోలు', w / 2, 68, w - 22, 52, TELUGU); c.font = '600 24px "IBM Plex Mono", monospace'; c.fillText('OLD CONSOLES', w / 2, 140); c.fillText('& TVs', w / 2, 175); }, -3.2, 1.85, Z0 - 0.076, 0, -0.05);
   put(bld, rbox(0.8, 2.84, 0.04, mat.shopWall, 0.005), -2.45, 1.44, Z0 - 0.5);
   displayCase(bld, -2.45, Z0 - 0.25, 0);
   awning(-3.43, 2.9, Z0, 0, 1.0); awning(-2.45, 2.84, Z0, 0, 0.95);
@@ -348,6 +573,53 @@ export async function buildShop(renderer, onProgress = () => {}) {
   model('exterior_aircon_unit', bld, X0 - 0.3, 2.75, -2.0, -Math.PI / 2, 0.34);
   model('utility_box_01', root, -4.2, 0, 0.75, Math.PI / 2, 0.6);
   put(bld, tube([[X0 - 0.08, LWH + 0.3, Z0 + 0.08], [X0 - 0.08, 0.2, Z0 + 0.08], [X0 - 0.08, 0.08, Z0 + 0.3]], 0.045, mat.pipe, 40), 0, 0, 0);
+
+  /* ---------- left service recess and sloping louvre hoods from the reference ---------- */
+  const serviceRecess = new THREE.Group(); serviceRecess.name = 'left-pipe-and-meter-recess';
+  put(bld, serviceRecess, X0 + 0.1, 0, Z0 + 0.16);
+  const recessFrame = agedPaint(0x586453, 211, 0.1), meterHousing = agedPaint(0xB9BAA7, 223, 0.15);
+  put(serviceRecess, rbox(0.38, 1.63, 0.035, M(0x293B35, { roughness: 0.95 }), 0.004), 0, 1.49, 0);
+  for (const xx of [-0.2, 0.2]) put(serviceRecess, rbox(0.028, 1.74, 0.1, recessFrame, 0.004), xx, 1.49, 0.025);
+  const meterPrint = canvasTex(256, 320, (c, w, h) => {
+    c.fillStyle = '#B8BDAE'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#D3D4BF'; c.beginPath(); c.arc(128, 121, 94, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#596658'; c.lineWidth = 7; c.stroke();
+    c.lineWidth = 2; for (let i = 0; i < 40; i++) {
+      const a = i * Math.PI / 20; c.beginPath(); c.moveTo(128 + Math.cos(a) * 73, 121 + Math.sin(a) * 73);
+      c.lineTo(128 + Math.cos(a) * 85, 121 + Math.sin(a) * 85); c.stroke();
+    }
+    c.fillStyle = '#3A453B'; c.fillRect(76, 92, 108, 38); c.fillStyle = '#D9D7B9';
+    c.font = '700 22px monospace'; c.fillText('03827', 87, 119);
+    c.strokeStyle = '#8E3C2C'; c.lineWidth = 4; c.beginPath(); c.moveTo(128, 142); c.lineTo(158, 164); c.stroke();
+    c.fillStyle = '#3F4C43'; c.font = '700 22px monospace'; c.fillText('220V', 24, 276);
+    c.fillStyle = '#976444'; c.fillRect(210, 276, 13, 22);
+  });
+  for (const [i, yy] of [2.08, 1.68, 1.28].entries()) {
+    put(serviceRecess, rbox(0.25, 0.31, 0.105, meterHousing, 0.012), 0, yy, 0.05);
+    const face = decal(0.205, 0.26, meterPrint); face.position.set(0, yy, 0.104); serviceRecess.add(face);
+    put(serviceRecess, rbox(0.05, 0.025, 0.015, mat.iron, 0.003), 0.07, yy - 0.13, 0.113);
+    for (const xx of [-0.095, 0.095]) put(serviceRecess, new THREE.Mesh(new THREE.SphereGeometry(0.006, 8, 6), mat.pipeDark), xx, yy + 0.12, 0.106);
+    put(serviceRecess, tube([[-0.11, yy - 0.14, 0.03], [-0.15, yy - 0.22, 0.03], [-0.15, yy - 0.34, 0.03]], 0.014, mat.pipeDark, 8), 0, 0, 0);
+  }
+  const leftDrain = agedPaint(0x547E76, 239, 0.18);
+  put(bld, tube([[X0 - 0.08, leftLowY - 0.11, Z0 + 0.2], [X0 - 0.24, leftLowY - 0.12, Z0 + 0.23], [X0 - 0.23, 2.82, Z0 + 0.24], [X0 - 0.07, 2.64, Z0 + 0.25], [X0 - 0.07, 0.35, Z0 + 0.25]], 0.053, leftDrain, 40), 0, 0, 0);
+  for (const yy of [0.78, 1.55, 2.5]) {
+    put(bld, new THREE.Mesh(new THREE.CylinderGeometry(0.061, 0.061, 0.075, 12), recessFrame), X0 - 0.07, yy, Z0 + 0.25);
+    put(bld, rbox(0.12, 0.028, 0.04, mat.pipe, 0.004), X0 - 0.04, yy, Z0 + 0.19);
+  }
+  const recessAwning = awning(X0 + 0.1, 2.58, Z0 + 0.12, 0, 0.53, 0.43);
+  recessAwning.name = 'left-service-awning';
+  const hoodFrame = agedPaint(0x3C7163, 263, 0.2);
+  for (const xx of [-3.45, -2.5]) {
+    const hood = new THREE.Group(); hood.name = 'left-sloped-glass-louvre-hood';
+    put(bld, hood, xx, 3.43, Z0 + 0.26, 0, 0.55);
+    const glazing = new THREE.MeshPhysicalMaterial({ color: 0x1C4E46, roughness: 0.37, metalness: 0.15, transparent: true, opacity: 0.82, clearcoat: 0.35 });
+    put(hood, rbox(0.85, 0.016, 0.37, glazing, 0.003), 0, 0, 0);
+    for (const hx of [-0.45, 0.45]) put(hood, rbox(0.035, 0.04, 0.44, hoodFrame, 0.005), hx, 0.01, 0);
+    for (const hz of [-0.21, 0.21]) put(hood, rbox(0.94, 0.04, 0.035, hoodFrame, 0.005), 0, 0.01, hz);
+    for (const hx of [-0.16, 0.16]) put(hood, rbox(0.022, 0.035, 0.4, hoodFrame, 0.003), hx, 0.013, 0);
+    for (const hx of [-0.43, 0.43]) for (const hz of [-0.18, 0.18]) put(hood, new THREE.Mesh(new THREE.SphereGeometry(0.009, 8, 6), mat.pipe), hx, 0.034, hz);
+  }
 
   /* ---------- main block: ground-floor corner shop ---------- */
   const mbW = X1 - XL, mbX = (XL + X1) / 2;
@@ -395,10 +667,10 @@ export async function buildShop(renderer, onProgress = () => {}) {
     c.fillStyle = '#A8322A'; c.font = '700 44px Kalam, cursive'; c.textAlign = 'left'; c.fillText('Ephileo', 26, 312);
   });
   const ticket = decal(0.12, 0.16, ticketTex); ticket.position.set(-0.27, 1.13, ZS + 0.065); ticket.rotation.z = -0.07; shop.add(ticket);
-  const cal = decal(0.13, 0.17, canvasTex(160, 200, (c, w, h) => { c.fillStyle = '#EFE6D2'; c.fillRect(0, 0, w, h); c.fillStyle = '#A8322A'; c.fillRect(0, 0, w, 40); c.fillStyle = '#EFE6D2'; c.font = '600 22px "IBM Plex Mono", monospace'; c.textAlign = 'center'; c.fillText('十月 OCT', w / 2, 28); c.fillStyle = '#B7AC96'; for (let r = 0; r < 4; r++) for (let k = 0; k < 5; k++) c.fillRect(14 + k * 28, 58 + r * 34, 20, 20); }));
+  const cal = decal(0.13, 0.17, canvasTex(160, 200, (c, w, h) => { c.fillStyle = '#EFE6D2'; c.fillRect(0, 0, w, h); c.fillStyle = '#A8322A'; c.fillRect(0, 0, w, 40); c.fillStyle = '#EFE6D2'; c.font = '600 22px "IBM Plex Mono", monospace'; c.textAlign = 'center'; signText(c, 'अक्टूबर · OCT', w / 2, 23, w - 12, 22, HINDI); c.fillStyle = '#B7AC96'; for (let r = 0; r < 4; r++) for (let k = 0; k < 5; k++) c.fillRect(14 + k * 28, 58 + r * 34, 20, 20); }));
   cal.position.set(-0.5, 1.15, ZS + 0.064); cal.rotation.z = 0.05; shop.add(cal);
-  const fuku = decal(0.36, 0.5, canvasTex(360, 500, (c, w, h) => { c.fillStyle = '#F4EFE4'; c.fillRect(0, 0, w, h); c.fillStyle = '#B3221C'; c.font = '700 120px ' + HANZI; c.textAlign = 'center'; c.fillText('福', w / 2, 160); c.fillStyle = '#1B1A17'; c.font = '600 30px "IBM Plex Mono", monospace'; c.fillText('2026', w / 2, 230); c.fillStyle = '#C9C0AE'; for (let r = 0; r < 5; r++) for (let k = 0; k < 7; k++) c.fillRect(30 + k * 44, 270 + r * 42, 30, 28); }));
-  fuku.position.set(XL + 0.105, 1.85, 0.1); fuku.rotation.y = Math.PI / 2; shop.add(fuku);
+  const wallCalendar = decal(0.36, 0.5, canvasTex(360, 500, (c, w, h) => { c.fillStyle = '#F4EFE4'; c.fillRect(0, 0, w, h); c.fillStyle = '#B3221C'; c.textAlign = 'center'; signText(c, 'శుభం', w / 2, 126, w - 40, 100, TELUGU); c.fillStyle = '#1B1A17'; c.font = '600 30px "IBM Plex Mono", monospace'; c.fillText('2026', w / 2, 230); c.fillStyle = '#C9C0AE'; for (let r = 0; r < 5; r++) for (let k = 0; k < 7; k++) c.fillRect(30 + k * 44, 270 + r * 42, 30, 28); }));
+  wallCalendar.position.set(XL + 0.105, 1.85, 0.1); wallCalendar.rotation.y = Math.PI / 2; shop.add(wallCalendar);
   // wall telephone on the left wall, facing the side opening — Contact
   const wallPhone = model('vintage_telephone_wall_clock', shop, XL + 0.18, 1.3, -0.75, Math.PI / 2, 0.85);
   // front counter
@@ -477,31 +749,40 @@ export async function buildShop(renderer, onProgress = () => {}) {
 
   /* ---------- signs ---------- */
   const signTex = canvasTex(2048, 400, (c, w, h) => {
-    c.fillStyle = '#F7F3EA'; c.fillRect(0, 0, w, h); c.fillStyle = '#C3241C'; c.textBaseline = 'middle'; c.textAlign = 'left';
-    c.font = '900 270px ' + HANZI; c.fillText('修理', 60, h / 2 + 10);
-    c.font = '400 140px Bungee, sans-serif'; c.fillText('EPHILEO', 700, 140);
-    c.font = '600 84px "IBM Plex Mono", monospace'; c.fillStyle = '#1B1A17'; c.fillText('REPAIRS · 電器維修', 708, 290);
+    c.fillStyle = '#F7F3EA'; c.fillRect(0, 0, w, h); c.fillStyle = '#C3241C'; c.textBaseline = 'middle'; c.textAlign = 'center';
+    c.font = '400 143px Bungee, sans-serif'; c.fillText('EPHILEO WORKSHOP', w / 2, 128);
+    c.fillStyle = '#343C32';
+    signText(c, 'कार्यशाला', w * 0.27, 288, w * 0.4, 124, HINDI);
+    signText(c, 'వర్క్‌షాప్', w * 0.73, 288, w * 0.4, 118, TELUGU);
+    c.fillStyle = '#AFAD94'; c.fillRect(w / 2 - 2, 234, 4, 96);
   });
   const signBox = lightbox(bld, mbX - 0.05, 2.36, Z0 + 0.45, 0, 3.3, 0.8, signTex, 0.3);
   const sideTex = canvasTex(1600, 420, (c, w, h) => {
     c.fillStyle = '#F7F3EA'; c.fillRect(0, 0, w, h); c.fillStyle = '#C3241C'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.font = '900 230px ' + HANZI; c.fillText('手機 · 電視', w / 2, 160);
-    c.font = '600 70px "IBM Plex Mono", monospace'; c.fillStyle = '#1B1A17'; c.fillText('PHONES · TVs · CONSOLES', w / 2, 340);
+    signText(c, 'मोबाइल · टीवी', w / 2, 116, w - 100, 150, HINDI);
+    signText(c, 'మొబైల్ · టీవీ', w / 2, 253, w - 100, 138, TELUGU);
+    c.font = '600 60px "IBM Plex Mono", monospace'; c.fillStyle = '#1B1A17'; c.fillText('PHONES · TVs · CONSOLES', w / 2, 365);
   });
   const sideSign = lightbox(bld, X1 + 0.45, 2.4, (ZS + Z0) / 2 - 0.1, Math.PI / 2, 2.2, 0.68, sideTex, 0.3);
   const signLight = new THREE.SpotLight(0xF4F8FF, 7, 6, 1.0, 1, 2); signLight.position.set(mbX, 2.1, Z0 + 0.7); signLight.target.position.set(mbX, 0, Z0 + 2.4); bld.add(signLight, signLight.target);
   const sideLight = new THREE.SpotLight(0xF4F8FF, 6, 6, 1.0, 1, 2); sideLight.position.set(X1 + 0.7, 2.1, -0.5); sideLight.target.position.set(X1 + 2.4, 0, -0.5); bld.add(sideLight, sideLight.target);
-  const vTex = canvasTex(300, 1100, (c, w, h) => {
+  const vTex = canvasTex(600, 1100, (c, w, h) => {
     c.fillStyle = '#F7F3EA'; c.fillRect(0, 0, w, h); c.fillStyle = '#C3241C'; c.textAlign = 'center'; c.textBaseline = 'middle';
-    c.font = '900 190px ' + HANZI; ['電', '器', '維', '修'].forEach((ch, i) => c.fillText(ch, w / 2, 140 + i * 215));
-    c.font = '600 40px "IBM Plex Mono", monospace'; c.fillStyle = '#1B1A17'; c.fillText('EPHILEO', w / 2, 1040);
+    c.strokeStyle = '#A7BAA8'; c.lineWidth = 8; c.strokeRect(15, 15, w - 30, h - 30);
+    c.font = '400 79px Bungee, sans-serif'; c.fillText('EPHILEO', w / 2, 142);
+    c.fillRect(66, 228, w - 132, 7);
+    signText(c, 'कार्यशाला', w / 2, 401, w - 70, 150, HINDI);
+    signText(c, 'వర్క్‌షాప్', w / 2, 656, w - 70, 145, TELUGU);
+    c.font = '600 69px "IBM Plex Mono", monospace'; c.fillStyle = '#1B1A17'; c.fillText('WORKSHOP', w / 2, 850);
+    c.font = '600 38px "IBM Plex Mono", monospace'; c.fillText('APPS · GAMES', w / 2, 1002);
   });
-  const vSign = lightbox(bld, X1 + OH + 0.62, 3.9, Z0 + OH + 0.62, Math.PI / 4, 0.72, 2.2, vTex, 0.3);
-  for (const by of [0.75, -0.75]) put(bld, rbox(0.75, 0.04, 0.04, mat.iron, 0.01), X1 + OH + 0.3, 3.9 + by, Z0 + OH + 0.3, -Math.PI / 4);
-  const vLight = new THREE.PointLight(0xF2F6FF, 0.4, 3, 2); vLight.position.set(X1 + OH + 0.9, 4.2, Z0 + OH + 0.9); bld.add(vLight);
+  // Mount the projecting sign farther along the side wall so the upper grille stays visible.
+  const vSign = lightbox(bld, X1 + OH + 1.0, 3.9, -1.65, Math.PI / 5, 0.72, 2.2, vTex, 0.3);
+  for (const by of [0.75, -0.75]) put(bld, rbox(1.0, 0.04, 0.04, mat.iron, 0.01), X1 + OH + 0.5, 3.9 + by, -1.65);
+  const vLight = new THREE.PointLight(0xF2F6FF, 0.25, 2, 2); vLight.position.set(X1 + OH + 1.15, 4.2, -1.3); bld.add(vLight);
   const sTex = canvasTex(400, 560, (c, w, h) => {
     c.fillStyle = '#C3241C'; c.fillRect(0, 0, w, h); c.strokeStyle = '#F7F3EA'; c.lineWidth = 8; c.strokeRect(14, 14, w - 28, h - 28);
-    c.fillStyle = '#F7F3EA'; c.textAlign = 'center'; c.font = '900 92px ' + HANZI; c.fillText('手機', w / 2, 140); c.fillText('電視', w / 2, 250); c.fillText('遊戲機', w / 2, 360);
+    c.fillStyle = '#F7F3EA'; c.textAlign = 'center'; signText(c, 'मोबाइल', w / 2, 112, w - 50, 100, HINDI); signText(c, 'టీవీ', w / 2, 238, w - 50, 95, TELUGU); signText(c, 'गेम्स', w / 2, 346, w - 50, 100, HINDI);
     c.font = '600 30px "IBM Plex Mono", monospace'; c.fillText('PHONES · TVs', w / 2, 440); c.fillText('CONSOLES', w / 2, 480);
   });
   const sand = new THREE.Group(); put(root, sand, -3.7, 0, 1.75, 0.3);
@@ -512,115 +793,292 @@ export async function buildShop(renderer, onProgress = () => {}) {
   for (const lx of [-0.2, 0.2]) put(sand, rbox(0.03, 0.15, 0.1, M(0x2A2A2A), 0.005), lx, 0.075, 0);
   const sLight = new THREE.PointLight(0xFF5A4A, 1.0, 2.5, 2); sLight.position.set(-3.5, 0.7, 2.2); root.add(sLight);
 
-  /* ---------- main block: short upper floor, balcony on the front-right ---------- */
+  /* ---------- upper floor: tiled room, recessed grille and a single pitched roof ---------- */
   const UF = H1 + 0.16, UH = EAVE - UF, fz = Z0 + OH, rx = X1 + OH;
   const upW = rx - XL, upX = (XL + rx) / 2;
-  const RISE = 1.55, backTop = EAVE + RISE + 0.1;               // single-pitch roof rising toward the back
-  const BX0 = -0.15, BX1 = rx - 0.1, bW = BX1 - BX0, bX = (BX0 + BX1) / 2, BD = 0.85;
+  // Three roof surfaces from the reference sketch: low ledge, ramp, high deck.
+  const TOP = EAVE + 1.65, slopeFrontZ = fz - 1.05, ridgeZ = ZB + 1.55;
+  const dz = fz - ZB, tH = TOP - UF;
+  const BX0 = -0.45, BX1 = rx - 0.15, bW = BX1 - BX0, bX = (BX0 + BX1) / 2, BD = 0.42;
   const BZ1 = -0.7;
-  // upper floor as in the kit: a low tiled front on the left-middle with a teal roof sloping up to the back,
-  // and a taller tiled front on the right (balcony in it) whose top meets the roof's high back edge
-  const TOP = EAVE + 1.25, tH = TOP - UF, dz = fz - ZB, cz = (fz + ZB) / 2;
-  const H_FL = EAVE, H_FR = EAVE, H_BL = TOP, H_BR = TOP;
-  put(bld, rbox(BX0 - XL, UH, 0.18, tileMat(BX0 - XL, UH), 0.02), (XL + BX0) / 2, UF + UH / 2, fz);
-  put(bld, rbox(BX0 - XL, tH, 0.15, plasterMat(BX0 - XL, tH), 0.01), (XL + BX0) / 2, UF + tH / 2, ZB);
-  const lside = new THREE.Shape(); lside.moveTo(fz, 0); lside.lineTo(ZB, 0); lside.lineTo(ZB, TOP - UF); lside.lineTo(fz, EAVE - UF); lside.lineTo(fz, 0);
-  put(bld, new THREE.Mesh(new THREE.ExtrudeGeometry(lside, { depth: 0.15, bevelEnabled: false }), pbr('plastered_wall_02', 0.7, 0.7, { color: 0xB2BEBE })), XL + 0.075, UF, 0, -Math.PI / 2);
-  // right block: tall front over the balcony, side walls, a triangular cheek where the roof meets it
-  put(bld, rbox(0.18, tH, dz, tileMat(dz, tH), 0.02), rx, UF + tH / 2, cz);
-  const cheek = new THREE.Shape(); cheek.moveTo(fz, EAVE - UF); cheek.lineTo(ZB, TOP - UF); cheek.lineTo(fz, TOP - UF); cheek.lineTo(fz, EAVE - UF);
-  put(bld, new THREE.Mesh(new THREE.ExtrudeGeometry(cheek, { depth: 0.16, bevelEnabled: false }), kitMat(WALL, 1, 1)), BX0 + 0.08, UF, 0, -Math.PI / 2);
-  put(bld, rbox(rx - BX0, tH, 0.15, plasterMat(rx - BX0, tH), 0.01), (BX0 + rx) / 2, UF + tH / 2, ZB);
-  put(bld, rbox(bW + 0.22, TOP - EAVE - 0.5, 0.18, tileMat(bW, TOP - EAVE - 0.5), 0.02), bX + 0.05, (TOP + EAVE + 0.5) / 2, fz);
-  const towerRoof = put(bld, rbox(rx - BX0 + 0.14, 0.12, dz + 0.14, mat.roof, 0.02), (BX0 + rx) / 2, TOP + 0.06, cz); support.push(towerRoof);
-  put(bld, rbox(rx - BX0 + 0.2, 0.1, 0.24, mat.band, 0.02), (BX0 + rx) / 2, TOP + 0.05, fz + 0.04);
-  // small grey box on the top-right corner, like the kit
-  unit(rx - 0.32, TOP - 0.62, fz + 0.18, 0.5, 0.55, 0.36);
-  // balcony recess + raised hood (steps the roofline up at the corner)
-  put(bld, rbox(bW, UH, 0.1, plasterMat(bW, UH, 0xD6D2C6), 0.01), bX, UF + UH / 2, fz - BD);
-  put(bld, rbox(0.12, UH, BD, tileMat(BD, UH), 0.01), BX0 + 0.06, UF + UH / 2, fz - BD / 2);
-  put(bld, rbox(bW + 0.22, 0.55, BD + 0.3, tileMat(bW, 0.55), 0.02), bX + 0.05, EAVE + 0.2, fz - BD / 2 + 0.06);
-  put(bld, rbox(bW + 0.3, 0.08, BD + 0.38, mat.band, 0.02), bX + 0.05, EAVE + 0.5, fz - BD / 2 + 0.06);
-  const balFloor = put(bld, rbox(bW, 0.08, BD + 0.3, mat.floorTiles, 0.01), bX, UF + 0.04, fz - BD / 2 + 0.15); support.push(balFloor);
-  put(bld, rbox(1.0, 1.15, 0.04, M(0x3B3F3A, { roughness: 0.5, metalness: 0.3 }), 0.01), bX, UF + 0.62, fz - BD + 0.07);
-  const bDoor = decal(0.9, 1.05, curtainTex, { glow: 1.0 }); bDoor.position.set(bX, UF + 0.62, fz - BD + 0.095); bld.add(bDoor);
-  const balLight = new THREE.PointLight(0xFFB466, 0.9, 2.5, 2); balLight.position.set(bX, UF + 1.0, fz - 0.2); bld.add(balLight);
-  root.updateMatrixWorld(true);
-  drop('potted_plant_02', bld, BX0 + 0.35, fz - 0.25, 0.2, 0.45, UF + 1);
-  drop('potted_plant_02', bld, BX1 - 0.3, fz - 0.3, 1.4, 0.4, UF + 1);
-  put(bld, tube([[BX0 + 0.15, UF + 1.12, fz - 0.45], [BX1 - 0.1, UF + 1.12, fz - 0.45]], 0.004, mat.cable, 2), 0, 0, 0);
-  [[BX0 + 0.45, 0xC9D6E4, 0.28], [bX, 0xB3221C, 0.22], [BX1 - 0.35, 0xE8D36A, 0.26]].forEach(([lx, col, w]) => {
-    put(bld, new THREE.Mesh(new THREE.PlaneGeometry(w, 0.32), new THREE.MeshStandardMaterial({ color: col, roughness: 0.9, side: THREE.DoubleSide })), lx, UF + 0.95, fz - 0.45, 0.05);
-  });
-  const grilleTex = canvasTex(1024, 640, (c, w, h) => {
-    c.clearRect(0, 0, w, h); c.strokeStyle = '#fff'; c.lineWidth = 10; c.strokeRect(6, 6, w - 12, h - 12);
-    for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) {
-      const cx = 128 + i * 256, cy = 160 + j * 320;
-      c.beginPath(); c.arc(cx, cy, 90, 0, 7); c.stroke();
-      c.beginPath(); c.moveTo(cx, cy - 130); c.lineTo(cx + 125, cy); c.lineTo(cx, cy + 130); c.lineTo(cx - 125, cy); c.closePath(); c.stroke();
-      c.beginPath(); c.arc(cx, cy, 26, 0, 7); c.stroke();
-    }
-    for (let x = 0; x <= w; x += 256) { c.beginPath(); c.moveTo(x, 0); c.lineTo(x, h); c.stroke(); }
-  });
-  const grilleMat = new THREE.MeshStandardMaterial({ color: 0x24302B, roughness: 0.5, metalness: 0.6, alphaMap: grilleTex, alphaTest: 0.5, side: THREE.DoubleSide });
-  const grille = new THREE.Mesh(new THREE.PlaneGeometry(bW - 0.08, 0.95), grilleMat); put(bld, grille, bX, UF + 0.56, fz + 0.12);
-  grille.customDepthMaterial = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking, alphaMap: grilleTex, alphaTest: 0.5 });
-  put(bld, rbox(bW - 0.04, 0.05, 0.08, mat.iron, 0.01), bX, UF + 1.06, fz + 0.12);
-  put(bld, rbox(bW + 0.1, 0.12, 0.4, mat.band, 0.02), bX, UF, fz + 0.02);
-  awning(bX, EAVE - 0.12, fz + 0.03, 0, bW + 0.1, 0.5);
-  // front window + AC on the tiled part; side-street windows
-  windowWithCage(bld, -1.35, UF + 0.78, fz + 0.09, 0, true, 0.8);
-  model('potted_plant_02', bld, -1.45, UF + 0.34, fz + 0.29, 0.4, 0.38);
-  const fanTex = canvasTex(256, 256, (c, w, h) => {
-    c.fillStyle = '#C9CDCB'; c.fillRect(0, 0, w, h); c.fillStyle = '#202322'; c.beginPath(); c.arc(128, 128, 104, 0, 7); c.fill();
-    c.strokeStyle = '#8E9492'; c.lineWidth = 5; for (let r = 24; r < 104; r += 13) { c.beginPath(); c.arc(128, 128, r, 0, 7); c.stroke(); }
-    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; c.beginPath(); c.moveTo(128, 128); c.lineTo(128 + Math.cos(a) * 104, 128 + Math.sin(a) * 104); c.stroke(); }
-    c.fillStyle = '#8E9492'; c.beginPath(); c.arc(128, 128, 16, 0, 7); c.fill();
-  });
-  const fanAC = (x, y, z, ry, sz) => {
-    const g = new THREE.Group(); put(bld, g, x, y, z, ry); g.scale.setScalar(sz);
-    put(g, rbox(0.82, 0.66, 0.34, M(0xC4C9C7, { roughness: 0.5, metalness: 0.2 }), 0.03), 0, 0.33, 0);
-    const f = decal(0.6, 0.6, fanTex); f.position.set(-0.07, 0.33, 0.172); g.add(f);
-    for (let i = 0; i < 6; i++) put(g, rbox(0.1, 0.012, 0.02, M(0x6E7472), 0.003), 0.31, 0.12 + i * 0.08, 0.17);
-    put(g, rbox(0.9, 0.04, 0.4, mat.iron, 0.01), 0, -0.02, -0.02);
-    return g;
+  const upper = new THREE.Group(); upper.name = 'reference-upper-floor'; bld.add(upper);
+  const upperTile = (w, h) => {
+    const m = kitMat(UPPER_WALL, w, h, 0xD7CDB5, { bump: 0.0045 });
+    m.userData.weatherStrength = 0.9; return m;
   };
-  fanAC(-0.55, UF + 0.1, fz + 0.26, 0, 0.85);
-  windowWithCage(bld, rx + 0.1, UF + 0.72, -0.6, Math.PI / 2, false, 0.75);
-  windowWithCage(bld, rx + 0.1, UF + 0.72, -2.9, Math.PI / 2, true, 0.75);
-  model('exterior_aircon_unit', bld, rx + 0.22, UF + 0.05, -1.75, Math.PI / 2, 0.3);
-  put(bld, rbox(0.34, 0.03, 0.6, mat.iron, 0.005), rx + 0.16, UF + 0.04, -1.75);
-
-  /* ---------- lean-to teal roof with skylights; tank on the tower ---------- */
-  const rc = { fl: new THREE.Vector3(XL - 0.2, H_FL + 0.06, fz + 0.32), fr: new THREE.Vector3(BX0 + 0.02, H_FR + 0.06, fz + 0.32), br: new THREE.Vector3(BX0 + 0.02, H_BR + 0.06, ZB - 0.15), bl: new THREE.Vector3(XL - 0.2, H_BL + 0.06, ZB - 0.15) };
-  const roofGeo = new THREE.PlaneGeometry(1, 1, 1, 1); const rp = roofGeo.attributes.position;
-  [rc.bl, rc.br, rc.fl, rc.fr].forEach((v, i) => rp.setXYZ(i, v.x, v.y, v.z)); roofGeo.computeVertexNormals();
-  const rW = rc.fr.x - rc.fl.x, rD = rc.fl.z - rc.bl.z;
-  const roofMat = kitMat(ROOF, rW, rD, 0xffffff, { bump: 2.2, roughness: 0.6 }); roofMat.side = THREE.DoubleSide;
-  const roof = new THREE.Mesh(roofGeo, roofMat); roof.castShadow = roof.receiveShadow = true; bld.add(roof);
-  put(bld, tube([[rc.fl.x, rc.fl.y - 0.03, rc.fl.z], [rc.fr.x, rc.fr.y - 0.03, rc.fr.z]], 0.045, mat.band, 2), 0, 0, 0);
-  put(bld, tube([[rc.fl.x, rc.fl.y - 0.03, rc.fl.z], [rc.bl.x, rc.bl.y - 0.03, rc.bl.z]], 0.045, mat.band, 2), 0, 0, 0);
-  const roofAt = (u, v) => new THREE.Vector3().copy(rc.fl).lerp(rc.fr, u).lerp(new THREE.Vector3().copy(rc.bl).lerp(rc.br, u), v);
-  const rN = new THREE.Vector3().subVectors(rc.fr, rc.fl).cross(new THREE.Vector3().subVectors(rc.bl, rc.fl)).normalize(); if (rN.y < 0) rN.negate();
-  const rQ = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), rN);
-  const skyMat = new THREE.MeshStandardMaterial({ color: 0x2A0A08, emissive: 0xFF3B2F, emissiveIntensity: 0.9, roughness: 0.2 });
-  for (const [u, v] of [[0.62, 0.22], [0.62, 0.5], [0.3, 0.35]]) {
-    const g = new THREE.Group(); g.position.copy(roofAt(u, v)); g.quaternion.copy(rQ); bld.add(g);
-    put(g, rbox(0.46, 0.12, 0.56, mat.iron, 0.02), 0, 0.05, 0);
-    put(g, new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.44), skyMat), 0, 0.115, 0, 0, -Math.PI / 2);
+  const balZ = -0.45;
+  const balcony = new THREE.Group(); balcony.name = 'recessed-side-balcony';
+  put(upper, balcony, rx - fz, 0, balZ + bX, Math.PI / 2);
+  // The side cheeks follow the roof. There is no rectangular tower above the front window.
+  function upperSide(x, name) {
+    const profile = new THREE.Shape();
+    profile.moveTo(fz, 0); profile.lineTo(ZB, 0); profile.lineTo(ZB, tH);
+    profile.lineTo(ridgeZ, tH); profile.lineTo(slopeFrontZ, UH); profile.lineTo(fz, UH); profile.closePath();
+    if (x === rx) {
+      const opening = new THREE.Path();
+      opening.moveTo(balZ - bW / 2, 0.13); opening.lineTo(balZ + bW / 2, 0.13);
+      opening.lineTo(balZ + bW / 2, UH - 0.18); opening.lineTo(balZ - bW / 2, UH - 0.18); opening.closePath();
+      profile.holes.push(opening);
+    }
+    const geo = new THREE.ExtrudeGeometry(profile, { depth: 0.14, bevelEnabled: false });
+    const uv = geo.attributes.uv, pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) / dz, pos.getY(i) / tH);
+    const wall = put(upper, new THREE.Mesh(geo, upperTile(dz, tH)), x + 0.07, UF, 0, -Math.PI / 2);
+    wall.name = name;
   }
-  const skyLight = new THREE.PointLight(0xFF3B2F, 1.0, 2.5, 2); skyLight.position.copy(roofAt(0.6, 0.35)).add(new THREE.Vector3(0, 0.4, 0)); bld.add(skyLight);
-  const tank = new THREE.Group(); put(bld, tank, BX0 + 0.55, TOP + 0.12, ZB + 0.9);
-  for (const [lx, lz] of [[-0.3, -0.3], [0.3, -0.3], [-0.3, 0.3], [0.3, 0.3]]) put(tank, rbox(0.07, 0.55, 0.07, mat.iron, 0.01), lx, 0.27, lz);
-  put(tank, rbox(0.78, 0.05, 0.78, mat.iron, 0.01), 0, 0.55, 0);
-  const tankMat = kitMat(kitTiles({ cell: 64, grout: 6, size: 0.12, groutColor: '#2B4E52', colors: [[150, 206, 214], [136, 194, 204], [160, 214, 220]], grime: 30, drips: 20, seed: 31 }), 2.6, 1.0);
-  put(tank, new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.95, 12), tankMat), 0, 1.05, 0);
-  put(tank, new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.42, 0.14, 12), mat.unitMetal), 0, 1.6, 0);
-  put(tank, new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.1, 12), mat.iron), 0, 1.72, 0);
-  put(bld, tube([[rx - 0.4, TOP + 1.3, ZB + 0.9], [rx - 0.1, TOP + 0.8, ZB + 1.1], [rx + 0.12, TOP + 0.2, ZB + 1.2], [rx + 0.12, UF + 0.3, ZB + 1.3]], 0.026, mat.pipe, 40), 0, 0, 0);
-  put(bld, tube([[BX0 + 0.3, TOP + 0.14, ZB + 0.4], [BX0 + 0.3, TOP + 1.4, ZB + 0.4]], 0.014, mat.pipeDark, 4), 0, 0, 0);
-  put(bld, tube([[BX0 - 0.05, TOP + 1.2, ZB + 0.4], [BX0 + 0.65, TOP + 1.2, ZB + 0.4]], 0.009, mat.pipeDark, 4), 0, 0, 0);
-  put(bld, tube([[BX0 + 0.05, TOP + 1.32, ZB + 0.4], [BX0 + 0.55, TOP + 1.32, ZB + 0.4]], 0.008, mat.pipeDark, 4), 0, 0, 0);
+  upperSide(XL, 'left-roof-cheek'); upperSide(rx, 'right-roof-cheek');
+  put(upper, rbox(upW, tH, 0.14, upperTile(upW, tH), 0.006), upX, UF + tH / 2, ZB);
+  put(upper, rbox(upW, UH, 0.16, upperTile(upW, UH), 0.006), upX, UF + UH / 2, fz);
+  put(balcony, rbox(bW, UH, 0.1, plasterMat(bW, UH, 0xC5C3AD), 0.006), bX, UF + UH / 2, fz - BD);
+  put(balcony, rbox(0.1, UH, BD, upperTile(BD, UH), 0.006), BX0 + 0.05, UF + UH / 2, fz - BD / 2);
+  const balFloor = put(balcony, rbox(bW + 0.08, 0.08, BD + 0.24, mat.roof, 0.008), bX, UF + 0.04, fz - BD / 2 + 0.1);
+  support.push(balFloor);
+  put(balcony, rbox(bW - 0.16, 1.1, 0.06, M(0x344740, { roughness: 0.82 }), 0.008), bX, UF + 0.68, fz - BD + 0.065);
+  const upperInterior = canvasTex(512, 512, (c, w, h) => {
+    c.fillStyle = '#394C40'; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 14; i++) {
+      c.fillStyle = i % 2 ? '#54634E' : '#455542'; c.fillRect(i * 38, 0, 15, h);
+    }
+    c.fillStyle = '#AD4436'; c.fillRect(225, 160, 52, 320);
+    c.fillStyle = '#BDBAA2'; c.fillRect(94, 190, 65, 280);
+    c.fillStyle = '#263F35'; c.fillRect(368, 170, 62, 330);
+  });
+  const bDoor = decal(bW - 0.24, 0.98, upperInterior, { glow: 0.12 });
+  bDoor.position.set(bX, UF + 0.68, fz - BD + 0.1); balcony.add(bDoor);
+  for (const xx of [bX - bW / 6, bX + bW / 6]) put(balcony, rbox(0.028, 1.05, 0.06, mat.iron, 0.004), xx, UF + 0.68, fz - BD + 0.11);
+  const balLight = new THREE.PointLight(0xFFBA7B, 0.28, 1.8, 2);
+  balLight.position.set(bX, UF + 0.9, fz - 0.2); balcony.add(balLight);
+  model('potted_plant_02', balcony, BX0 + 0.24, UF + 0.08, fz - 0.15, 0.2, 0.25);
+  model('potted_plant_02', balcony, BX1 - 0.2, UF + 0.08, fz - 0.16, 1.4, 0.22);
+
+  // Thin metal bars and four flower rosettes, modeled in relief like the reference grille.
+  const grille = new THREE.Group(); grille.name = 'flower-window-grille';
+  put(balcony, grille, bX, UF + 0.14, fz + 0.08);
+  const grilleMetal = M(0x8B9D8B, { roughness: 0.72, metalness: 0.35 });
+  const gw = bW - 0.08, gh = 1.08;
+  for (const yy of [0, 0.26, 0.7, gh]) put(grille, rbox(gw, 0.025, 0.025, grilleMetal, 0.004), 0, yy, 0);
+  for (const xx of [-gw / 2, gw / 2]) put(grille, rbox(0.026, gh, 0.025, grilleMetal, 0.004), xx, gh / 2, 0);
+  for (let i = 1; i < 16; i++) put(grille, rbox(0.012, gh, 0.012, grilleMetal, 0.003), -gw / 2 + gw * i / 16, gh / 2, -0.025);
+  for (let i = 0; i < 4; i++) {
+    const cx = -gw / 2 + gw * (i + 0.5) / 4, cy = 0.69;
+    for (let petal = 0; petal < 6; petal++) {
+      const angle = petal * Math.PI / 3, pts = [];
+      for (let k = 0; k <= 24; k++) {
+        const t = k / 24 * Math.PI * 2, radial = 0.105 + Math.cos(t) * 0.105, tangent = Math.sin(t) * 0.047;
+        pts.push([cx + Math.cos(angle) * radial - Math.sin(angle) * tangent, cy + Math.sin(angle) * radial + Math.cos(angle) * tangent, 0.016]);
+      }
+      put(grille, tube(pts, 0.008, grilleMetal, 24), 0, 0, 0);
+    }
+    put(grille, new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.009, 6, 20), grilleMetal), cx, cy, 0.022);
+  }
+  for (const xx of [-gw / 2, gw / 2]) {
+    for (const yy of [0, gh]) put(grille, rbox(0.024, 0.024, BD + 0.12, grilleMetal, 0.004), xx, yy, -(BD + 0.12) / 2);
+  }
+  put(balcony, rbox(bW + 0.1, 0.1, 0.28, mat.band, 0.012), bX, UF + 0.025, fz + 0.05);
+  const canopy = awning(bX, EAVE - 0.08, fz + 0.03, 0, bW + 0.18, 0.6);
+  balcony.add(canopy); canopy.name = 'upper-scalloped-canopy';
+  // White condenser and three conduit runs on the plain tiled section.
+  const fanTex = canvasTex(512, 512, (c, w, h) => {
+    c.fillStyle = '#D6D4C9'; c.fillRect(0, 0, w, h);
+    c.fillStyle = '#737E75'; c.beginPath(); c.arc(w / 2, h / 2, 206, 0, Math.PI * 2); c.fill();
+    c.strokeStyle = '#C2C4B8'; c.lineWidth = 3;
+    for (let r = 24; r < 206; r += 12) { c.beginPath(); c.arc(w / 2, h / 2, r, 0, Math.PI * 2); c.stroke(); }
+    for (let i = 0; i < 24; i++) {
+      const a = i * Math.PI / 12; c.beginPath(); c.moveTo(w / 2, h / 2);
+      c.lineTo(w / 2 + Math.cos(a) * 206, h / 2 + Math.sin(a) * 206); c.stroke();
+    }
+    c.fillStyle = '#ABB3A5'; c.beginPath(); c.arc(w / 2, h / 2, 30, 0, Math.PI * 2); c.fill();
+  });
+  const ac = new THREE.Group(); ac.name = 'upper-white-condenser';
+  put(upper, ac, -1.05, UF + 0.27, fz + 0.22);
+  put(ac, rbox(0.88, 0.79, 0.28, M(0xE4E1D3, { roughness: 0.83, metalness: 0.08 }), 0.014), 0, 0.4, 0);
+  const fan = decal(0.66, 0.68, fanTex); fan.position.set(-0.065, 0.4, 0.142); ac.add(fan);
+  for (let i = 0; i < 8; i++) put(ac, rbox(0.09, 0.012, 0.018, mat.pipeDark, 0.003), 0.34, 0.15 + i * 0.065, 0.15);
+  for (const xx of [-0.31, 0.31]) put(ac, rbox(0.045, 0.06, 0.38, mat.iron, 0.008), xx, -0.03, -0.03);
+  for (let i = 0; i < 3; i++) {
+    const yy = UF + 0.11 + i * 0.065;
+    put(upper, tube([[XL - 0.25, yy, fz + 0.18], [-1.7, yy, fz + 0.18], [-0.6, yy + 0.14, fz + 0.18], [BX0 + 0.2, yy + 0.14, fz + 0.18]], 0.018, mat.pipeDark, 32), 0, 0, 0);
+  }
+  windowWithCage(bld, rx + 0.1, UF + 0.72, -2.9, Math.PI / 2, true, 0.75);
+  model('exterior_aircon_unit', bld, rx + 0.22, UF + 0.05, -2.2, Math.PI / 2, 0.3);
+  put(bld, rbox(0.34, 0.03, 0.6, mat.iron, 0.005), rx + 0.16, UF + 0.04, -2.2);
+
+  /* ---------- teal roof: two inset red skylights, grey flashing, tank at the rear ridge ---------- */
+  const roofWidth = upW + 0.3, run = slopeFrontZ - ridgeZ;
+  const rise = TOP - EAVE, roofLength = Math.hypot(run, rise), pitch = Math.atan2(rise, run);
+  const roofAssembly = new THREE.Group(); roofAssembly.name = 'teal-pitched-roof';
+  put(upper, roofAssembly, upX, (TOP + EAVE) / 2 + 0.05, (ridgeZ + slopeFrontZ) / 2, 0, pitch);
+  const roofMat = kitMat(ROOF, roofWidth, roofLength, 0xA2C2B7, { bump: 0.009, roughness: 0.76 });
+  put(roofAssembly, rbox(roofWidth, 0.1, roofLength, roofMat, 0.008), 0, 0, 0);
+  const flashing = agedPaint(0x6B6D65, 127, 0.18);
+  const ledgeFrontZ = fz + 0.18, ledgeDepth = ledgeFrontZ - slopeFrontZ;
+  const lowLedge = put(upper, rbox(roofWidth, 0.12, ledgeDepth, mat.roof, 0.008), upX, EAVE + 0.04, (ledgeFrontZ + slopeFrontZ) / 2);
+  lowLedge.name = 'lower-flat-roof-ledge'; support.push(lowLedge);
+  put(upper, rbox(roofWidth + 0.12, 0.16, 0.14, flashing, 0.01), upX, EAVE + 0.05, ledgeFrontZ);
+  for (const xx of [upX - roofWidth / 2, upX + roofWidth / 2]) put(upper, rbox(0.12, 0.14, ledgeDepth, flashing, 0.008), xx, EAVE + 0.06, (ledgeFrontZ + slopeFrontZ) / 2);
+  for (const xx of [-roofWidth / 2, roofWidth / 2]) put(roofAssembly, rbox(0.12, 0.15, roofLength + 0.1, flashing, 0.01), xx, 0.025, 0);
+  for (const zz of [-roofLength / 2, roofLength / 2]) put(roofAssembly, rbox(roofWidth + 0.12, 0.16, 0.14, flashing, 0.01), 0, 0.01, zz);
+  const skyFrame = M(0x235C54, { roughness: 0.72, metalness: 0.35 });
+  const skyMat = new THREE.MeshPhysicalMaterial({ color: 0x220101, emissive: 0xEB0501, emissiveIntensity: 0.62, roughness: 0.34, clearcoat: 0.45 });
+  for (const zz of [-0.67, 0.65]) {
+    const skylight = new THREE.Group(); skylight.name = 'red-roof-skylight';
+    put(roofAssembly, skylight, 0.08, 0.065, zz);
+    put(skylight, rbox(0.53, 0.055, 0.68, flashing, 0.01), 0, 0, 0);
+    put(skylight, rbox(0.45, 0.07, 0.6, skyFrame, 0.012), 0, 0.035, 0);
+    put(skylight, rbox(0.32, 0.018, 0.44, skyMat, 0.008), 0, 0.079, 0);
+    put(skylight, rbox(0.33, 0.012, 0.025, mat.pipe, 0.004), 0, 0.091, -0.21);
+  }
+  const rearDeck = put(upper, rbox(roofWidth, 0.12, ridgeZ - ZB + 0.2, mat.roof, 0.01), upX, TOP + 0.04, (ridgeZ + ZB) / 2);
+  rearDeck.name = 'upper-flat-roof-deck'; support.push(rearDeck);
+  for (const xx of [upX - roofWidth / 2, upX + roofWidth / 2]) put(upper, rbox(0.12, 0.14, ridgeZ - ZB + 0.2, flashing, 0.008), xx, TOP + 0.06, (ridgeZ + ZB) / 2);
+  put(upper, rbox(roofWidth, 0.14, 0.12, flashing, 0.008), upX, TOP + 0.06, ZB - 0.1);
+  model('planter_box_01', upper, rx - 0.5, TOP + 0.1, ridgeZ - 0.13, 0, 0.38);
+  const tank = new THREE.Group(); tank.name = 'ribbed-rooftop-water-tank';
+  const tankZ = ridgeZ - 0.62;
+  put(upper, tank, rx - 0.58, TOP + 0.1, tankZ);
+  for (const [lx, lz] of [[-0.27, -0.27], [0.27, -0.27], [-0.27, 0.27], [0.27, 0.27]]) put(tank, rbox(0.045, 0.34, 0.045, mat.iron, 0.006), lx, 0.17, lz);
+  put(tank, rbox(0.76, 0.055, 0.76, mat.iron, 0.008), 0, 0.34, 0);
+  const tankPrint = canvasTex(512, 768, (c, w, h) => {
+    c.fillStyle = '#BCD1CA'; c.fillRect(0, 0, w, h);
+    for (let i = 0; i < 8; i++) {
+      const x = i * 64;
+      const grad = c.createLinearGradient(x, 0, x + 64, 0);
+      grad.addColorStop(0, '#688D87'); grad.addColorStop(0.13, '#D0DBCB'); grad.addColorStop(0.75, '#ADC9C2'); grad.addColorStop(1, '#7D9E96');
+      c.fillStyle = grad; c.fillRect(x, 0, 64, h);
+      c.fillStyle = 'rgba(112,76,43,0.24)'; c.fillRect(x + 4, 0, 3, 170 + i % 3 * 100);
+    }
+    c.fillStyle = 'rgba(75,106,99,0.24)'; for (const y of [210, 520]) c.fillRect(0, y, w, 3);
+  });
+  const tankMat = new THREE.MeshStandardMaterial({ map: tankPrint, roughness: 0.7, metalness: 0.35 });
+  tankMat.userData.weatherStrength = 0.4;
+  put(tank, new THREE.Mesh(new THREE.CylinderGeometry(0.37, 0.37, 1.12, 8), tankMat), 0, 0.94, 0);
+  for (let i = 0; i < 8; i++) {
+    const a = i * Math.PI / 4;
+    put(tank, rbox(0.018, 1.14, 0.018, mat.iron, 0.003), Math.sin(a) * 0.373, 0.94, Math.cos(a) * 0.373);
+  }
+  for (const yy of [0.38, 1.5]) put(tank, new THREE.Mesh(new THREE.TorusGeometry(0.372, 0.023, 6, 8), mat.iron), 0, yy, 0, 0, Math.PI / 2);
+  put(tank, new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.38, 0.1, 8), mat.unitMetal), 0, 1.56, 0);
+  put(tank, new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.07, 8), mat.iron), 0, 1.65, 0);
+  put(upper, tube([[rx - 0.38, TOP + 0.75, tankZ], [rx + 0.1, TOP + 0.6, tankZ], [rx + 0.1, UF + 0.3, tankZ + 0.14]], 0.025, mat.pipe, 36), 0, 0, 0);
+  // The small utility box sits on the upper side cheek beneath the ridge.
+  unit(rx + 0.12, TOP - 0.52, ridgeZ - 0.1, 0.48, 0.38, 0.28, Math.PI / 2);
+  put(upper, tube([[rx - 0.45, TOP + 0.1, ZB + 0.1], [rx - 0.45, TOP + 1.45, ZB + 0.1]], 0.014, mat.pipeDark, 4), 0, 0, 0);
+
+  /* ---------- upper-floor miniature construction details ---------- */
+  const upperDetails = new THREE.Group(); upperDetails.name = 'upper-floor-fine-details'; upper.add(upperDetails);
+  const rivets = [], boltColor = M(0x9C9D8B, { metalness: 0.45, roughness: 0.64 });
+  function rivet(parent, x, y, z, radius = 0.008) {
+    parent.updateWorldMatrix(true, false);
+    rivets.push({ position: parent.localToWorld(new THREE.Vector3(x, y, z)), radius });
+  }
+  // Overlapping flashing joints and exposed fasteners along all three roof surfaces.
+  for (let i = 0; i <= 12; i++) {
+    const xx = -roofWidth / 2 + 0.09 + (roofWidth - 0.18) * i / 12;
+    rivet(upper, upX + xx, EAVE + 0.04, ledgeFrontZ + 0.076);
+    rivet(roofAssembly, xx, 0.094, -roofLength / 2);
+  }
+  const flashingJoint = agedPaint(0x828278, 71, 0.25);
+  for (const xx of [-roofWidth / 2, roofWidth / 2]) {
+    for (let i = 0; i <= 8; i++) rivet(roofAssembly, xx, 0.106, -roofLength / 2 + roofLength * i / 8);
+    for (const zz of [-roofLength * 0.24, roofLength * 0.25]) {
+      put(roofAssembly, rbox(0.13, 0.008, 0.075, flashingJoint, 0.002), xx, 0.108, zz);
+    }
+  }
+  for (const zz of [-0.67, 0.65]) {
+    for (const xx of [-0.2, 0.2]) for (const dz of [-0.27, 0.27]) rivet(roofAssembly, xx + 0.08, 0.14, zz + dz, 0.006);
+    put(roofAssembly, rbox(0.36, 0.028, 0.045, mat.pipeDark, 0.004), 0.08, 0.16, zz - 0.29);
+  }
+  // A thin gutter under the low ledge, with brackets and a drain elbow.
+  put(upperDetails, new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, roofWidth - 0.14, 10), mat.pipeDark), upX, EAVE - 0.075, ledgeFrontZ + 0.02, 0, 0, Math.PI / 2);
+  for (const xx of [XL + 0.18, upX, rx - 0.12]) {
+    put(upperDetails, rbox(0.028, 0.15, 0.08, flashing, 0.004), xx, EAVE - 0.03, ledgeFrontZ + 0.005);
+    rivet(upperDetails, xx, EAVE + 0.03, ledgeFrontZ + 0.05);
+  }
+  put(upperDetails, tube([[rx + 0.035, EAVE - 0.075, ledgeFrontZ + 0.02], [rx + 0.13, EAVE - 0.12, fz + 0.1], [rx + 0.13, EAVE - 0.34, fz + 0.1]], 0.029, mat.pipeDark, 16), 0, 0, 0);
+
+  // Fan grille in relief; housing fasteners, service label and conduit saddles.
+  const fanGrille = M(0x8C9788, { roughness: 0.75, metalness: 0.3 });
+  for (let i = 0; i < 7; i++) put(ac, new THREE.Mesh(new THREE.TorusGeometry(0.055 + i * 0.034, 0.0024, 5, 48), fanGrille), -0.065, 0.4, 0.154);
+  for (let i = 0; i < 12; i++) {
+    const a = i * Math.PI / 6;
+    put(ac, tube([[-0.065, 0.4, 0.158], [-0.065 + Math.cos(a) * 0.29, 0.4 + Math.sin(a) * 0.29, 0.158]], 0.0027, fanGrille, 2), 0, 0, 0);
+  }
+  for (const xx of [-0.39, 0.39]) for (const yy of [0.07, 0.73]) rivet(ac, xx, yy, 0.149, 0.007);
+  const serviceLabel = decal(0.08, 0.16, canvasTex(128, 256, (c, w, h) => {
+    c.fillStyle = '#E1DECA'; c.fillRect(0, 0, w, h); c.fillStyle = '#456263';
+    c.fillRect(0, 0, w, 45); c.fillStyle = '#E1DECA'; c.font = '700 22px monospace'; c.fillText('E-08', 12, 31);
+    c.fillStyle = '#6F7666'; for (let y = 70; y < 170; y += 18) c.fillRect(12, y, 85, 5);
+    c.fillStyle = '#A24C35'; c.beginPath(); c.moveTo(64, 190); c.lineTo(93, 238); c.lineTo(35, 238); c.fill();
+  })); serviceLabel.position.set(0.34, 0.61, 0.16); ac.add(serviceLabel);
+  for (const xx of [-1.68, -0.48]) {
+    put(upperDetails, rbox(0.033, 0.26, 0.026, mat.pipe, 0.005), xx, UF + 0.19, fz + 0.204);
+    for (const yy of [UF + 0.075, UF + 0.305]) rivet(upperDetails, xx, yy, fz + 0.22, 0.007);
+  }
+  for (let i = 0; i < 3; i++) {
+    const yy = UF + 0.11 + i * 0.065;
+    put(upperDetails, new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.035, 8), mat.pipe), -1.45, yy + 0.012, fz + 0.18, 0, 0, Math.PI / 2);
+  }
+  for (const yy of [UF + 0.3, UF + 0.88, EAVE - 0.15]) {
+    put(upperDetails, rbox(0.09, 0.028, 0.08, mat.pipe, 0.006), rx + 0.1, yy, fz + 0.1);
+    rivet(upperDetails, rx + 0.065, yy, fz + 0.144, 0.006);
+  }
+  // Printed stains sit at the eave and around the pipe runs rather than uniformly darkening the wall.
+  const damp = canvasTex(1024, 512, (c, w, h) => {
+    let seed = 89; const rnd = () => ((seed = seed * 16807 % 2147483647) / 2147483647);
+    for (let i = 0; i < 34; i++) {
+      const x = rnd() * w, start = rnd() * 40, len = 70 + rnd() * 240, width = 2 + rnd() * 7;
+      const gradient = c.createLinearGradient(0, start, 0, start + len);
+      gradient.addColorStop(0, 'rgba(65,60,38,0.22)'); gradient.addColorStop(1, 'rgba(65,60,38,0)');
+      c.fillStyle = gradient; c.fillRect(x, start, width, len);
+    }
+    for (let i = 0; i < 12; i++) {
+      const x = rnd() * w, r = 30 + rnd() * 75;
+      const gradient = c.createRadialGradient(x, h - 15, 0, x, h - 15, r);
+      gradient.addColorStop(0, 'rgba(56,80,48,0.21)'); gradient.addColorStop(1, 'rgba(56,80,48,0)');
+      c.fillStyle = gradient; c.fillRect(x - r, h - r - 15, r * 2, r * 2);
+    }
+  });
+  const stains = decal(upW - 0.025, UH - 0.025, damp, { transparent: true });
+  stains.material.depthWrite = false; stains.castShadow = false;
+  stains.position.set(upX, UF + UH / 2, fz + 0.085); upperDetails.add(stains);
+  const wallNotice = decal(0.14, 0.51, canvasTex(160, 600, (c, w, h) => {
+    c.fillStyle = '#325F65'; c.fillRect(0, 0, w, h); c.fillStyle = '#D6CBB0';
+    c.textAlign = 'center'; c.save(); c.translate(w / 2, 263); c.rotate(-Math.PI / 2);
+    signText(c, 'मरम्मत · రిపేర్', 0, 0, 454, 46, INDIC); c.restore();
+    c.font = '700 28px monospace'; c.fillText('08–22', w / 2, 566);
+    c.strokeStyle = '#958875'; c.lineWidth = 8; c.strokeRect(4, 4, w - 8, h - 8);
+  })); wallNotice.position.set(XL + 0.18, UF + 0.88, fz + 0.09); upperDetails.add(wallNotice);
+  put(upperDetails, rbox(0.025, UH, 0.035, agedPaint(0x827D6B, 23, 0), 0.002), rx - 0.006, UF + UH / 2, fz + 0.075);
+  // Window cage fixings, tiny hinges and a scalloped canopy with worn cut edges.
+  for (const xx of [BX0 + 0.065, BX1 - 0.065]) for (const yy of [UF + 0.19, UF + 1.14]) {
+    put(balcony, rbox(0.06, 0.11, 0.018, fanGrille, 0.004), xx, yy, fz + 0.092);
+    rivet(balcony, xx, yy, fz + 0.106, 0.006);
+  }
+  for (const xx of [bX - bW / 6, bX + bW / 6]) {
+    put(balcony, rbox(0.018, 0.09, 0.027, mat.brass, 0.003), xx + 0.035, UF + 0.66, fz - BD + 0.13);
+  }
+  // Tank inspection cover, band joints, valve and rooftop planting.
+  const tankCover = agedPaint(0xA9C2B4, 97, 0.35);
+  put(tank, rbox(0.13, 0.18, 0.025, tankCover, 0.004), 0, 0.99, 0.345);
+  put(tank, rbox(0.017, 0.055, 0.03, mat.iron, 0.003), 0.035, 0.99, 0.366);
+  for (const yy of [0.41, 1.49]) {
+    put(tank, rbox(0.08, 0.055, 0.035, flashing, 0.004), 0.14, yy, 0.343);
+    rivet(tank, 0.14, yy, 0.367, 0.006);
+  }
+  put(tank, new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.12, 10), mat.brass), 0.24, 0.45, 0.31, 0, Math.PI / 2);
+  put(tank, new THREE.Mesh(new THREE.TorusGeometry(0.055, 0.006, 6, 20), mat.iron), 0.24, 0.46, 0.39);
+  model('potted_plant_02', upper, upX - 0.3, TOP + 0.1, ridgeZ - 0.3, 0.5, 0.28);
+  model('potted_plant_02', upper, rx - 0.95, TOP + 0.1, ridgeZ - 0.27, 1.7, 0.22);
+  for (const [yy, width] of [[TOP + 0.9, 0.68], [TOP + 1.18, 0.48], [TOP + 1.4, 0.3]]) {
+    put(upperDetails, tube([[rx - 0.45 - width / 2, yy, ZB + 0.1], [rx - 0.45 + width / 2, yy, ZB + 0.1]], 0.008, mat.pipeDark, 2), 0, 0, 0);
+  }
+  // Instancing keeps the many small fasteners cheap to render.
+  const fasteners = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 8, 6), boltColor, rivets.length);
+  fasteners.name = 'upper-floor-fasteners';
+  rivets.forEach(({ position, radius }, i) => {
+    fasteners.setMatrixAt(i, new THREE.Matrix4().compose(position, new THREE.Quaternion(), new THREE.Vector3(radius, radius, radius * 0.6)));
+  });
+  fasteners.instanceMatrix.needsUpdate = true; upperDetails.add(fasteners);
 
   /* ---------- back-right annex with the water tank ---------- */
   const aW = AX1 - X1, aX = (X1 + AX1) / 2, aD = AZ1 - ZB, aZ = (AZ1 + ZB) / 2;
@@ -638,7 +1096,7 @@ export async function buildShop(renderer, onProgress = () => {}) {
   const aCounter = new THREE.Group(); put(annex, aCounter, AX1 - 0.3, 0, aZ + 0.2);
   put(aCounter, rbox(0.44, 0.9, 0.9, mat.woodShelf, 0.015), 0, 0.45, 0);
   const aTop = put(aCounter, rbox(0.56, 0.05, 1.0, mat.wood, 0.012), 0.04, 0.92, 0); support.push(aTop);
-  const priceTex = canvasTex(256, 128, (c, w, h) => { c.fillStyle = '#F2E9D3'; c.fillRect(0, 0, w, h); c.fillStyle = '#B3221C'; c.font = '700 54px ' + HANZI; c.textAlign = 'center'; c.fillText('二手 $', w / 2, 62); c.fillStyle = '#1B1A17'; c.font = '600 28px "IBM Plex Mono", monospace'; c.fillText('USED · AS IS', w / 2, 108); });
+  const priceTex = canvasTex(256, 128, (c, w, h) => { c.fillStyle = '#F2E9D3'; c.fillRect(0, 0, w, h); c.fillStyle = '#B3221C'; c.textAlign = 'center'; signText(c, 'వాడినవి · $', w / 2, 45, w - 20, 40, TELUGU); c.fillStyle = '#1B1A17'; c.font = '600 28px "IBM Plex Mono", monospace'; c.fillText('USED · AS IS', w / 2, 108); });
   const price = decal(0.3, 0.15, priceTex); price.position.set(0.225, 0.62, 0); price.rotation.y = Math.PI / 2; aCounter.add(price);
   const aShelf = model('steel_frame_shelves_01', annex, aX - 0.2, 0.06, ZB + 0.33, 0, 0.8); aShelf.traverse((m) => { if (m.isMesh) support.push(m); });
   model('Television_01', annex, X1 + 0.42, 0.06, AZ1 - 0.45, 0.4, 0.8);
@@ -686,23 +1144,23 @@ export async function buildShop(renderer, onProgress = () => {}) {
   put(bld, tube([[X0, 3.4, ZB - 0.12], [AX1, 3.3, ZB - 0.12]], 0.025, mat.pipeDark, 2), 0, 0, 0);
   for (const [a, b, d] of [[[X0, 3.6, ZB - 0.1], [AX1, 3.55, ZB - 0.1], 0.35], [[X0, 3.5, ZB - 0.12], [0.5, 3.45, ZB - 0.12], 0.22]]) put(bld, sag(a, b, d, 0.011, mat.cable), 0, 0, 0);
   poster(1.2, 0.7, (c, w, h) => {
-    c.fillStyle = '#B9B1A4'; c.fillRect(0, 0, w, h); c.fillStyle = 'rgba(179,34,28,0.85)'; c.font = '900 150px ' + HANZI; c.textAlign = 'center'; c.fillText('禁止泊車', w / 2, 220);
-    c.fillStyle = 'rgba(27,26,23,0.8)'; c.font = '600 70px "IBM Plex Mono", monospace'; c.fillText('NO PARKING', w / 2, 360);
-    c.font = '400 44px "IBM Plex Mono", monospace'; c.fillText('LOADING ONLY · 23:00–07:00', w / 2, 460);
+    c.fillStyle = '#B9B1A4'; c.fillRect(0, 0, w, h); c.fillStyle = 'rgba(179,34,28,0.85)'; c.textAlign = 'center'; signText(c, 'पार्किंग मना है', w / 2, 163, w - 80, 118, HINDI); signText(c, 'పార్కింగ్ వద్దు', w / 2, 297, w - 80, 107, TELUGU);
+    c.fillStyle = 'rgba(27,26,23,0.8)'; c.font = '600 70px "IBM Plex Mono", monospace'; c.fillText('NO PARKING', w / 2, 457);
+    c.font = '400 44px "IBM Plex Mono", monospace'; c.fillText('LOADING ONLY · 23:00–07:00', w / 2, 582);
   }, -3.0, 0.75, ZB - 0.08, Math.PI);
   // back-right corner alley: gas, bins, crates, bucket
   const gasMat = new THREE.MeshPhysicalMaterial({ color: 0xA9231B, roughness: 0.4, metalness: 0.3, clearcoat: 0.5 });
-  for (const [gx, gz] of [[3.1, -3.8], [3.4, -3.75]]) {
+  for (const [gx, gz] of [[3.1, ZB + 0.2], [3.4, ZB + 0.25]]) {
     const g = new THREE.Group(); put(root, g, gx, 0, gz);
     put(g, new THREE.Mesh(new THREE.CapsuleGeometry(0.15, 0.45, 8, 24), gasMat), 0, 0.38, 0);
     put(g, new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.1, 16), mat.steel), 0, 0.8, 0);
   }
-  model('trashbag', root, 3.65, 0, -3.7, 0.4, 0.8);
-  model('trashbag', root, 3.7, 0, -3.1, 2.1, 0.7);
+  model('trashbag', root, 3.65, 0, ZB + 0.25, 0.4, 0.8);
+  model('trashbag', root, 3.7, 0, ZB + 0.8, 2.1, 0.7);
   model('cardboard_box_01', root, 3.2, 0, -2.9, 0.2, 0.8);
   model('cardboard_box_01', root, 3.22, 0.4, -2.92, -0.3, 0.6);
-  model('plastic_crate_02', root, -1.6, 0, -4.3, -0.2, 0.8);
-  const bucket = new THREE.Group(); put(root, bucket, -0.05, 0, -4.3);
+  model('plastic_crate_02', root, -1.6, 0, ZB - 0.25, -0.2, 0.8);
+  const bucket = new THREE.Group(); put(root, bucket, -0.05, 0, ZB - 0.2);
   put(bucket, new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.14, 0.32, 32, 1, true), new THREE.MeshStandardMaterial({ color: 0x2F6FA8, roughness: 0.4, side: THREE.DoubleSide })), 0, 0.16, 0);
   put(bucket, tube([[0.02, 0.3, 0], [0.12, 1.15, 0.05]], 0.012, M(0xC9B48A), 2), 0, 0, 0);
 
@@ -838,7 +1296,7 @@ export async function buildShop(renderer, onProgress = () => {}) {
     if (!o.isMesh) return;
     for (const m of [].concat(o.material)) {
       if (!m || !m.isMeshStandardMaterial || m.userData.prop || m.transparent || m.emissiveMap || m.alphaMap || m.emissiveIntensity > 0.05 && m.emissive.getHex() !== 0) continue;
-      weather(m, m.metalness > 0.25 ? 1.8 : 1.7, m.metalness > 0.25 ? 1.0 : 0.25);
+      weather(m, m.userData.weatherStrength ?? (m.metalness > 0.25 ? 1.8 : 1.7), m.metalness > 0.25 ? 1.0 : 0.25);
     }
   });
   [pave.material].forEach((m) => weather(m, 0.7, 0.0));
@@ -859,5 +1317,16 @@ export async function buildShop(renderer, onProgress = () => {}) {
     ticket: { objs: [signBox], anchor: signC, cam: signC.clone().add(V(0.9, -0.2, 3.6)) },
   };
 
+  // Cloned PBR maps share their image source. Wait for it before the first render,
+  // then mark every clone ready so no material uploads an empty texture.
+  await Promise.all(textureLoads);
+  root.traverse((o) => {
+    if (!o.isMesh) return;
+    for (const material of [].concat(o.material)) {
+      for (const key of ['map', 'normalMap', 'roughnessMap', 'bumpMap', 'emissiveMap']) {
+        if (material[key]) material[key].needsUpdate = true;
+      }
+    }
+  });
   return { root, envMap, hotspots, setLit, anim: { smokeFrom, bulbsGroup: bulbs, smoke, rain, RAIN, shopShutter: shutters, dial, signFace: signBox.userData.face, vFace: vSign.userData.face } };
 }

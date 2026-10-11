@@ -1,10 +1,10 @@
 <meta charset="utf-8">
-<title>Ephileo Repairs</title>
+<title>Ephileo Workshop</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=IBM+Plex+Mono:wght@400;500;600&family=Kalam:wght@400;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=IBM+Plex+Mono:wght@400;500;600&family=Kalam:wght@400;700&family=Noto+Sans+Devanagari:wght@700&family=Noto+Sans+Telugu:wght@700&display=swap">
 <style>
-/* Layout: one full-window WebGL diorama of a Hong Kong repair shop, with paper-ticket UI layered on top. Single committed night look. */
+/* Layout: one full-window WebGL diorama of a miniature workshop, with paper-ticket UI layered on top. Single committed night look. */
 :root {
   --night: #0E1220;
   --night-glass: rgba(14, 18, 32, 0.78);
@@ -75,7 +75,7 @@ body { margin: 0; background: var(--night); color: var(--paper); font-family: va
 
 <div id="stage" aria-hidden="true"></div>
 <div class="top"><span class="word">EPHILEO</span></div>
-<nav class="sr" aria-label="Shop">
+<nav class="sr" aria-label="Workshop">
   <button type="button" data-go="phone">Roamates</button>
   <button type="button" data-go="tv">Chain Reaction</button>
   <button type="button" data-go="safe">Escape Game</button>
@@ -87,18 +87,18 @@ body { margin: 0; background: var(--night); color: var(--paper); font-family: va
   <span class="bar"><i id="barFill"></i></span>
   <button class="open-btn" id="openBtn" type="button" disabled>
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
-    Open shop
+    Open workshop
   </button>
 </div>
 <div class="hint" id="hint" hidden><b></b>Click anything that glows &middot; drag to look around</div>
 <div class="tag" id="tag" hidden><div><strong id="tagLabel"></strong><span id="tagSub"></span></div></div>
 <button class="back" id="back" type="button" hidden>
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg>
-  Back to the shop <kbd>Esc</kbd>
+  Back to the workshop <kbd>Esc</kbd>
 </button>
 <aside class="panel" id="panel" aria-hidden="true">
   <header><span id="pJob"></span>
-    <button type="button" id="pClose" aria-label="Back to the shop"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+    <button type="button" id="pClose" aria-label="Back to the workshop"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
   </header>
   <div class="head"><span class="kind" id="pKind"></span><h2 id="pName"></h2><span class="tagline" id="pTag"></span></div>
   <div class="perf"></div>
@@ -132,7 +132,7 @@ function setLoad(p) { p = Math.round(p); $('load').textContent = 'Warming up the
 
 let renderer;
 try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }); }
-catch (e) { document.body.insertAdjacentHTML('beforeend', '<div class="fallback"><p>This browser can’t draw the 3D shop.</p></div>'); throw e; }
+catch (e) { document.body.insertAdjacentHTML('beforeend', '<div class="fallback"><p>This browser can’t draw the 3D workshop.</p></div>'); throw e; }
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
@@ -142,6 +142,11 @@ renderer.toneMappingExposure = 1.35;
 $('stage').appendChild(renderer.domElement);
 
 try { await Promise.race([Promise.all(['400 60px Bungee', '600 20px "IBM Plex Mono"', '700 40px Kalam'].map((f) => document.fonts.load(f))), new Promise((r) => setTimeout(r, 2500))]); } catch (e) {}
+// Canvas signs must be drawn after the script-specific fonts are ready.
+await Promise.all([
+  document.fonts.load('700 80px "Noto Sans Devanagari"', 'कार्यशाला मोबाइल मरम्मत'),
+  document.fonts.load('700 80px "Noto Sans Telugu"', 'వర్క్‌షాప్ మొబైల్ రిపేర్'),
+]);
 setLoad(5);
 const shop = await buildShop(renderer, (p) => setLoad(5 + p * 90));
 const scene = new THREE.Scene();
@@ -157,15 +162,22 @@ const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.05, 1
 const TARGET = new THREE.Vector3(-0.35, 2.95, 0.0);
 function homeFor() {
   const a = innerWidth / innerHeight;
-  const dist = Number(params.get('d') ?? (a < 0.8 ? 26 : a < 1.2 ? 16.5 : 16));
-  const az = Number(params.get('az') ?? -0.2), el = Number(params.get('el') ?? 0.09);
+  const dist = Number(params.get('d') ?? (a < 0.8 ? 19 / a : a < 1.2 ? 21 : 20));
+  const az = Number(params.get('az') ?? 0.48), el = Number(params.get('el') ?? 0.12);
   return { pos: TARGET.clone().add(new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(dist)), target: TARGET.clone() };
 }
-camera.position.copy(homeFor().pos).add(new THREE.Vector3(1.2, 0.6, 2.5));
+camera.position.copy(homeFor().pos);
+if (!params.has('shot')) camera.position.add(new THREE.Vector3(1.2, 0.6, 2.5));
+function frameFog() {
+  const distance = homeFor().pos.distanceTo(TARGET);
+  scene.fog.near = Math.max(18, distance - 3);
+  scene.fog.far = Math.max(34, distance + 15);
+}
+frameFog();
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.copy(TARGET);
 controls.enableDamping = true; controls.enablePan = false;
-controls.minDistance = 4; controls.maxDistance = 30;
+controls.minDistance = 4; controls.maxDistance = Math.max(45, homeFor().pos.distanceTo(TARGET));
 controls.minPolarAngle = 1.05; controls.maxPolarAngle = 1.62;
 controls.enabled = false;
 
@@ -216,11 +228,11 @@ const L = {
   escape: [['Open project', '#'], ['App Store', 'https://apps.apple.com/us/app/escape-brain-teaser/id6743350755'], ['Google Play', 'https://play.google.com/store/apps/details?id=com.bhvp.escapeGame&hl=en_US'], ['Play on the web', 'https://bharath-bandaru.github.io/escape-web/']],
 };
 const INFO = {
-  phone: { label: 'ROAMATES', sub: 'the phone on the counter', p: { job: 'EPHILEO REPAIRS · JOB 001', kind: 'ON THE COUNTER · PHONE', name: 'Roamates', tag: 'Your journey, together', desc: 'Split expenses, share live locations, and plan trips with your group — then take notes, schedule tasks, and chat it all out in one place.', status: 'Released — ready for pickup', plat: 'iOS · Android', links: L.roamates } },
-  tv: { label: 'CHAIN REACTION', sub: 'the TV on the wall', p: { job: 'EPHILEO REPAIRS · JOB 002', kind: 'ON THE WALL · TV', name: 'Chain Reaction', tag: 'Explosive fun for everyone', desc: 'A strategic multiplayer game where you set off chain reactions to dominate the board. Simple to learn, endlessly engaging.', status: 'Released — ready for pickup', plat: 'Android · Web', links: L.chain } },
-  safe: { label: 'ESCAPE GAME', sub: 'the safe under the counter', p: { job: 'EPHILEO REPAIRS · JOB 003', kind: 'UNDER THE COUNTER · SAFE', name: 'Escape Game', tag: 'Can you escape in time?', desc: 'A thrilling puzzle escape game that challenges your wit and problem-solving skills. Each room tells a story waiting to be unraveled.', status: 'Released — ready for pickup', plat: 'iOS · Android · Web', links: L.escape } },
-  ticket: { label: 'ABOUT', sub: 'the shop sign', p: { job: 'EPHILEO REPAIRS · ABOUT', kind: 'OVER THE DOOR · SHOP SIGN', name: 'About Ephileo', tag: 'Small shop. Hand-built things.', desc: 'Ephileo develops beautifully designed applications that people love. Games, apps, and digital experiences crafted with care.', status: 'Open late', plat: 'iOS · Android · Web', links: [['Leave a message', '#contact']] } },
-  rotary: { label: 'CONTACT', sub: 'the wall telephone', p: { job: 'EPHILEO REPAIRS · WALL PHONE', kind: 'ON THE WALL · TELEPHONE', name: 'Call the shop', tag: 'Leave a message, we’ll ring back.', desc: 'Got an idea, a bug, or just want to say hi? Pick up the phone and leave a note for the team.', status: 'Answering', plat: 'Message form', links: [['Leave a message', '#contact']] } },
+  phone: { label: 'ROAMATES', sub: 'the phone on the counter', p: { job: 'EPHILEO WORKSHOP · JOB 001', kind: 'ON THE COUNTER · PHONE', name: 'Roamates', tag: 'Your journey, together', desc: 'Split expenses, share live locations, and plan trips with your group — then take notes, schedule tasks, and chat it all out in one place.', status: 'Released — ready for pickup', plat: 'iOS · Android', links: L.roamates } },
+  tv: { label: 'CHAIN REACTION', sub: 'the TV on the wall', p: { job: 'EPHILEO WORKSHOP · JOB 002', kind: 'ON THE WALL · TV', name: 'Chain Reaction', tag: 'Explosive fun for everyone', desc: 'A strategic multiplayer game where you set off chain reactions to dominate the board. Simple to learn, endlessly engaging.', status: 'Released — ready for pickup', plat: 'Android · Web', links: L.chain } },
+  safe: { label: 'ESCAPE GAME', sub: 'the safe under the counter', p: { job: 'EPHILEO WORKSHOP · JOB 003', kind: 'UNDER THE COUNTER · SAFE', name: 'Escape Game', tag: 'Can you escape in time?', desc: 'A thrilling puzzle escape game that challenges your wit and problem-solving skills. Each room tells a story waiting to be unraveled.', status: 'Released — ready for pickup', plat: 'iOS · Android · Web', links: L.escape } },
+  ticket: { label: 'ABOUT', sub: 'the workshop sign', p: { job: 'EPHILEO WORKSHOP · ABOUT', kind: 'OVER THE DOOR · WORKSHOP SIGN', name: 'About Ephileo', tag: 'Small workshop. Hand-built things.', desc: 'Ephileo develops beautifully designed applications that people love. Games, apps, and digital experiences crafted with care.', status: 'Open late', plat: 'iOS · Android · Web', links: [['Leave a message', '#contact']] } },
+  rotary: { label: 'CONTACT', sub: 'the wall telephone', p: { job: 'EPHILEO WORKSHOP · WALL PHONE', kind: 'ON THE WALL · TELEPHONE', name: 'Call the workshop', tag: 'Leave a message, we’ll ring back.', desc: 'Got an idea, a bug, or just want to say hi? Pick up the phone and leave a note for the team.', status: 'Answering', plat: 'Message form', links: [['Leave a message', '#contact']] } },
 };
 
 /* ---------- rings + picking ---------- */
@@ -297,6 +309,7 @@ renderer.domElement.addEventListener('pointerup', (ev) => {
 });
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  frameFog(); controls.maxDistance = Math.max(45, homeFor().pos.distanceTo(TARGET));
   renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); bloom.setSize(innerWidth, innerHeight); finish.uniforms.res.value.set(innerWidth, innerHeight);
   if (mode === 'idle') { const h = homeFor(); goal.pos = h.pos; goal.target = h.target; }
 });
