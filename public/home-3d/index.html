@@ -1,0 +1,356 @@
+<meta charset="utf-8">
+<title>Ephileo Repairs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=IBM+Plex+Mono:wght@400;500;600&family=Kalam:wght@400;700&display=swap">
+<style>
+/* Layout: one full-window WebGL diorama of a Hong Kong repair shop, with paper-ticket UI layered on top. Single committed night look. */
+:root {
+  --night: #0E1220;
+  --night-glass: rgba(14, 18, 32, 0.78);
+  --paper: #EFE6D2;
+  --paper-rule: #CDBFA3;
+  --ink: #1B1A17;
+  --ink-soft: #6B5F4A;
+  --lacquer: #A8322A;
+  --tungsten: #FFB868;
+  --mist: #C9CEDB;
+  --f-sign: 'Bungee', 'Arial Black', sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  --f-hand: 'Kalam', 'Comic Sans MS', cursive;
+  color-scheme: dark;
+}
+[hidden] { display: none !important; }
+.shot .top, .shot .hint, .shot .intro, .shot .tag { display: none !important; }
+html, body { height: 100%; }
+body { margin: 0; background: var(--night); color: var(--paper); font-family: var(--f-mono); overflow: hidden; }
+#stage { position: fixed; inset: 0; }
+#stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+.top { position: fixed; top: env(safe-area-inset-top, 0px); left: 0; right: 0; display: flex; justify-content: space-between; align-items: center; padding: 22px 24px; pointer-events: none; }
+.word { font-size: 14px; font-weight: 600; letter-spacing: 0.24em; }
+.intro { position: fixed; left: 0; right: 0; bottom: calc(40px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; align-items: center; gap: 14px; padding-inline: 16px; transition: opacity 0.5s; }
+.intro.gone { opacity: 0; pointer-events: none; }
+.load { font-size: 13px; color: var(--mist); font-variant-numeric: tabular-nums; }
+.bar { width: 260px; max-width: 100%; height: 4px; border-radius: 2px; background: #263049; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--tungsten); transition: width 0.3s; }
+.open-btn { display: inline-flex; align-items: center; gap: 12px; min-height: 52px; padding: 0 30px; border: 0; border-radius: 4px; background: var(--tungsten); color: var(--ink); font-family: var(--f-sign); font-size: 20px; letter-spacing: 0.04em; cursor: pointer; box-shadow: 0 0 32px rgba(255, 184, 104, 0.35); }
+.open-btn[disabled] { opacity: 0.4; cursor: default; }
+.open-btn:focus-visible, .panel a:focus-visible, .panel button:focus-visible, .back:focus-visible { outline: 2px solid var(--tungsten); outline-offset: 3px; }
+.hint { position: fixed; left: 50%; bottom: calc(32px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); display: flex; align-items: center; gap: 10px; padding: 10px 18px; border-radius: 22px; background: var(--night-glass); border: 1px solid rgba(239, 230, 210, 0.16); font-size: 13px; white-space: nowrap; }
+.hint b { width: 12px; height: 12px; border-radius: 6px; border: 2px solid var(--tungsten); box-shadow: 0 0 10px rgba(255, 184, 104, 0.7); }
+.tag { position: fixed; left: 0; top: 0; display: flex; align-items: center; gap: 10px; padding: 8px 12px; background: var(--paper); color: var(--ink); border-radius: 3px; white-space: nowrap; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); pointer-events: none; transform: translate(26px, -50%); }
+.tag::before { content: ""; width: 7px; height: 7px; border-radius: 4px; background: var(--night); }
+.tag strong { display: block; font-size: 12px; letter-spacing: 0.1em; }
+.tag span { display: block; font-size: 11px; color: #5C5140; }
+.panel { position: fixed; top: 24px; right: 24px; bottom: 24px; width: min(420px, calc(100vw - 32px)); background: var(--paper); color: var(--ink); border-radius: 4px; display: flex; flex-direction: column; overflow: auto; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); transform: translateX(calc(100% + 40px)); transition: transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.panel.on { transform: none; }
+.panel header { background: var(--lacquer); color: var(--paper); padding: 4px 6px 4px 20px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 600; letter-spacing: 0.14em; }
+.panel header button { width: 44px; height: 44px; display: grid; place-items: center; background: none; border: 0; color: var(--paper); cursor: pointer; }
+.panel .head { padding: 26px 28px 0; display: flex; flex-direction: column; gap: 10px; }
+.kind { font-size: 12px; font-weight: 600; letter-spacing: 0.14em; color: var(--ink-soft); }
+.panel h2 { margin: 0; font-family: var(--f-sign); font-weight: 400; font-size: 34px; line-height: 1.05; text-wrap: balance; }
+.tagline { font-family: var(--f-hand); font-size: 22px; color: var(--lacquer); }
+.perf { margin: 20px 28px; border-top: 2px dashed var(--paper-rule); }
+.panel p { margin: 0 28px; font-size: 14px; line-height: 1.65; }
+.panel dl { margin: 22px 28px 0; display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px 12px; font-size: 12px; }
+.panel dt { color: var(--ink-soft); letter-spacing: 0.1em; }
+.panel dd { margin: 0; }
+.links { margin-top: auto; padding: 28px; display: flex; flex-direction: column; gap: 10px; }
+.links a { display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 0 18px; border: 1.5px solid var(--ink); border-radius: 3px; color: var(--ink); font-size: 14px; font-weight: 600; text-decoration: none; }
+.links a:first-child { background: var(--ink); color: var(--paper); }
+.back { position: fixed; left: 24px; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 18px; border-radius: 22px; background: var(--night-glass); border: 1px solid rgba(239, 230, 210, 0.2); color: var(--paper); font: inherit; font-size: 13px; cursor: pointer; }
+.back kbd { padding: 2px 6px; border: 1px solid rgba(239, 230, 210, 0.35); border-radius: 3px; font: inherit; font-size: 11px; color: var(--mist); }
+.sr { position: fixed; left: 16px; top: 64px; display: flex; flex-direction: column; gap: 6px; }
+.sr button { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.sr button:focus-visible { position: static; width: auto; height: auto; clip-path: none; padding: 8px 12px; background: var(--paper); color: var(--ink); border: 0; border-radius: 3px; font: inherit; }
+.fallback { position: fixed; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; }
+@media (max-width: 640px) {
+  .panel { top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 58vh; border-radius: 14px 14px 0 0; transform: translateY(105%); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .panel.on { transform: none; }
+  .back { bottom: auto; top: calc(64px + env(safe-area-inset-top, 0px)); left: 16px; }
+  .hint { font-size: 12px; }
+}
+@media (prefers-reduced-motion: reduce) { .panel, .intro { transition: none; } }
+</style>
+
+<div id="stage" aria-hidden="true"></div>
+<div class="top"><span class="word">EPHILEO</span></div>
+<nav class="sr" aria-label="Shop">
+  <button type="button" data-go="phone">Roamates</button>
+  <button type="button" data-go="tv">Chain Reaction</button>
+  <button type="button" data-go="safe">Escape Game</button>
+  <button type="button" data-go="ticket">About Ephileo</button>
+  <button type="button" data-go="rotary">Contact</button>
+</nav>
+<div class="intro" id="intro">
+  <span class="load" id="load">Warming up the soldering iron… 0%</span>
+  <span class="bar"><i id="barFill"></i></span>
+  <button class="open-btn" id="openBtn" type="button" disabled>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"></path></svg>
+    Open shop
+  </button>
+</div>
+<div class="hint" id="hint" hidden><b></b>Click anything that glows &middot; drag to look around</div>
+<div class="tag" id="tag" hidden><div><strong id="tagLabel"></strong><span id="tagSub"></span></div></div>
+<button class="back" id="back" type="button" hidden>
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg>
+  Back to the shop <kbd>Esc</kbd>
+</button>
+<aside class="panel" id="panel" aria-hidden="true">
+  <header><span id="pJob"></span>
+    <button type="button" id="pClose" aria-label="Back to the shop"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+  </header>
+  <div class="head"><span class="kind" id="pKind"></span><h2 id="pName"></h2><span class="tagline" id="pTag"></span></div>
+  <div class="perf"></div>
+  <p id="pDesc"></p>
+  <dl><dt>STATUS</dt><dd id="pStatus"></dd><dt>WORKS ON</dt><dd id="pPlat"></dd></dl>
+  <div class="links" id="pLinks"></div>
+</aside>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
+import { buildShop } from './shop.js';
+
+const $ = (id) => document.getElementById(id);
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const params = new URLSearchParams(location.search);
+if (params.has('shot')) document.body.classList.add('shot');
+function setLoad(p) { p = Math.round(p); $('load').textContent = 'Warming up the soldering iron… ' + p + '%'; $('barFill').style.width = p + '%'; }
+
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }); }
+catch (e) { document.body.insertAdjacentHTML('beforeend', '<div class="fallback"><p>This browser can’t draw the 3D shop.</p></div>'); throw e; }
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.35;
+$('stage').appendChild(renderer.domElement);
+
+try { await Promise.race([Promise.all(['400 60px Bungee', '600 20px "IBM Plex Mono"', '700 40px Kalam'].map((f) => document.fonts.load(f))), new Promise((r) => setTimeout(r, 2500))]); } catch (e) {}
+setLoad(5);
+const shop = await buildShop(renderer, (p) => setLoad(5 + p * 90));
+const scene = new THREE.Scene();
+{ const c = document.createElement('canvas'); c.width = 4; c.height = 256; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 0, 256);
+  gr.addColorStop(0, '#0B1A24'); gr.addColorStop(0.55, '#123040'); gr.addColorStop(1, '#0A1016'); g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
+  const bgTex = new THREE.CanvasTexture(c); bgTex.colorSpace = THREE.SRGBColorSpace; scene.background = bgTex; }
+scene.fog = new THREE.Fog(0x0E1C26, 18, 34);
+scene.environment = shop.envMap;
+scene.environmentIntensity = 0.45;
+scene.add(shop.root);
+
+const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.05, 120);
+const TARGET = new THREE.Vector3(-0.35, 2.95, 0.0);
+function homeFor() {
+  const a = innerWidth / innerHeight;
+  const dist = Number(params.get('d') ?? (a < 0.8 ? 26 : a < 1.2 ? 16.5 : 16));
+  const az = Number(params.get('az') ?? -0.2), el = Number(params.get('el') ?? 0.09);
+  return { pos: TARGET.clone().add(new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(dist)), target: TARGET.clone() };
+}
+camera.position.copy(homeFor().pos).add(new THREE.Vector3(1.2, 0.6, 2.5));
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.copy(TARGET);
+controls.enableDamping = true; controls.enablePan = false;
+controls.minDistance = 4; controls.maxDistance = 30;
+controls.minPolarAngle = 1.05; controls.maxPolarAngle = 1.62;
+controls.enabled = false;
+
+const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: 4 }));
+composer.setPixelRatio(Math.min(devicePixelRatio, 2)); composer.setSize(innerWidth, innerHeight);
+composer.addPass(new RenderPass(scene, camera));
+// macro-lens depth of field: the photographed-miniature look
+const bokeh = new BokehPass(scene, camera, { focus: 12, aperture: 0.0045, maxblur: 0.012 });
+bokeh.enabled = false; // keep everything sharp
+composer.addPass(bokeh);
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.35, 0.45, 0.95);
+composer.addPass(bloom); composer.addPass(new OutputPass());
+// photographed-miniature finish: teal/orange split tone, gentle contrast, vignette, tilt-shift blur away from a focus band
+const finish = new ShaderPass({
+  uniforms: { tDiffuse: { value: null }, res: { value: new THREE.Vector2(innerWidth, innerHeight) }, focusY: { value: 0.5 }, band: { value: 0.2 }, blur: { value: 0.0 } },
+  vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `
+    uniform sampler2D tDiffuse; uniform vec2 res; uniform float focusY, band, blur; varying vec2 vUv;
+    vec3 grade(vec3 c) {
+      float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
+      c = mix(vec3(l), c, 1.05);
+      c += vec3(-0.045, 0.04, 0.06) * (1.0 - smoothstep(0.0, 0.65, l));
+      c += vec3(0.018, 0.006, -0.012) * smoothstep(0.5, 1.0, l);
+      c = c * c * (3.0 - 2.0 * c) * 0.6 + c * 0.4;
+      return c;
+    }
+    void main() {
+      float d = smoothstep(band, band + 0.32, abs(vUv.y - focusY));
+      vec2 px = blur * d / res;
+      vec3 acc = texture2D(tDiffuse, vUv).rgb; float w = 1.0;
+      for (int i = 0; i < 12; i++) {
+        float a = float(i) * 2.39996; float r = sqrt(float(i) + 0.5) / 3.5;
+        vec2 o = vec2(cos(a), sin(a)) * r * px * 3.0;
+        acc += texture2D(tDiffuse, vUv + o).rgb; w += 1.0;
+      }
+      vec3 c = grade(acc / w);
+      vec2 q = vUv - 0.5; c *= 1.0 - dot(q, q) * 0.55;
+      gl_FragColor = vec4(c, 1.0);
+    }`,
+});
+composer.addPass(finish);
+setLoad(100);
+
+/* ---------- content ---------- */
+const L = {
+  roamates: [['Open project', '#'], ['App Store', 'https://apps.apple.com/us/app/roamates/id6757687270'], ['Google Play', 'https://play.google.com/store/apps/details?id=us.ephileo.roamates']],
+  chain: [['Open project', '#'], ['Google Play', 'https://play.google.com/store/apps/details?id=com.bhvp.chainreaction&hl=en'], ['Play on the web', 'https://bharath-bandaru.github.io/chain-reaction-game/']],
+  escape: [['Open project', '#'], ['App Store', 'https://apps.apple.com/us/app/escape-brain-teaser/id6743350755'], ['Google Play', 'https://play.google.com/store/apps/details?id=com.bhvp.escapeGame&hl=en_US'], ['Play on the web', 'https://bharath-bandaru.github.io/escape-web/']],
+};
+const INFO = {
+  phone: { label: 'ROAMATES', sub: 'the phone on the counter', p: { job: 'EPHILEO REPAIRS · JOB 001', kind: 'ON THE COUNTER · PHONE', name: 'Roamates', tag: 'Your journey, together', desc: 'Split expenses, share live locations, and plan trips with your group — then take notes, schedule tasks, and chat it all out in one place.', status: 'Released — ready for pickup', plat: 'iOS · Android', links: L.roamates } },
+  tv: { label: 'CHAIN REACTION', sub: 'the TV on the wall', p: { job: 'EPHILEO REPAIRS · JOB 002', kind: 'ON THE WALL · TV', name: 'Chain Reaction', tag: 'Explosive fun for everyone', desc: 'A strategic multiplayer game where you set off chain reactions to dominate the board. Simple to learn, endlessly engaging.', status: 'Released — ready for pickup', plat: 'Android · Web', links: L.chain } },
+  safe: { label: 'ESCAPE GAME', sub: 'the safe under the counter', p: { job: 'EPHILEO REPAIRS · JOB 003', kind: 'UNDER THE COUNTER · SAFE', name: 'Escape Game', tag: 'Can you escape in time?', desc: 'A thrilling puzzle escape game that challenges your wit and problem-solving skills. Each room tells a story waiting to be unraveled.', status: 'Released — ready for pickup', plat: 'iOS · Android · Web', links: L.escape } },
+  ticket: { label: 'ABOUT', sub: 'the shop sign', p: { job: 'EPHILEO REPAIRS · ABOUT', kind: 'OVER THE DOOR · SHOP SIGN', name: 'About Ephileo', tag: 'Small shop. Hand-built things.', desc: 'Ephileo develops beautifully designed applications that people love. Games, apps, and digital experiences crafted with care.', status: 'Open late', plat: 'iOS · Android · Web', links: [['Leave a message', '#contact']] } },
+  rotary: { label: 'CONTACT', sub: 'the wall telephone', p: { job: 'EPHILEO REPAIRS · WALL PHONE', kind: 'ON THE WALL · TELEPHONE', name: 'Call the shop', tag: 'Leave a message, we’ll ring back.', desc: 'Got an idea, a bug, or just want to say hi? Pick up the phone and leave a note for the team.', status: 'Answering', plat: 'Message form', links: [['Leave a message', '#contact']] } },
+};
+
+/* ---------- rings + picking ---------- */
+const ringTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
+  g.strokeStyle = '#FFB868'; g.lineWidth = 7; g.shadowColor = '#FFB868'; g.shadowBlur = 18; g.beginPath(); g.arc(64, 64, 40, 0, 7); g.stroke();
+  g.fillStyle = 'rgba(255,184,104,0.18)'; g.beginPath(); g.arc(64, 64, 38, 0, 7); g.fill(); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+const hitList = [];
+for (const [id, h] of Object.entries(shop.hotspots)) {
+  const ring = new THREE.Sprite(new THREE.SpriteMaterial({ map: ringTex, transparent: true, depthWrite: false, depthTest: false, opacity: 0 }));
+  ring.position.copy(h.anchor); ring.scale.setScalar(0.32); ring.renderOrder = 10; scene.add(ring); h.ring = ring;
+  h.objs.forEach((o) => o.traverse((m) => { if (m.isMesh) { m.userData.spot = id; hitList.push(m); } }));
+}
+
+let mode = 'closed', openT = 0, focusId = null, hoverId = null, offsetX = 0;
+const goal = { pos: null, target: null };
+$('openBtn').disabled = false;
+
+function openShop() {
+  if (mode !== 'closed') return;
+  mode = 'opening'; $('intro').classList.add('gone');
+  const h = homeFor(); goal.pos = h.pos; goal.target = h.target;
+}
+$('openBtn').addEventListener('click', openShop);
+if (params.has('open')) { openT = 0.999; openShop(); }
+
+function focusOn(id) {
+  if (mode !== 'idle' && mode !== 'focus') return;
+  if (id === 'contact') id = 'rotary';
+  const h = shop.hotspots[id], info = INFO[id]; focusId = id; mode = 'focus';
+  goal.pos = h.cam.clone(); goal.target = h.anchor.clone(); controls.enabled = false;
+  const p = info.p;
+  $('pJob').textContent = p.job; $('pKind').textContent = p.kind; $('pName').textContent = p.name; $('pTag').textContent = p.tag;
+  $('pDesc').textContent = p.desc; $('pStatus').textContent = p.status; $('pPlat').textContent = p.plat;
+  const links = $('pLinks'); links.textContent = '';
+  for (const [label, href] of p.links) {
+    const a = document.createElement('a'); a.href = href; a.textContent = label;
+    a.insertAdjacentHTML('beforeend', '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>');
+    if (href.startsWith('http')) { a.target = '_blank'; a.rel = 'noopener'; }
+    if (href === '#contact') a.addEventListener('click', (e) => { e.preventDefault(); focusOn('rotary'); });
+    if (href === '#') a.addEventListener('click', (e) => e.preventDefault());
+    links.appendChild(a);
+  }
+  $('panel').classList.add('on'); $('panel').setAttribute('aria-hidden', 'false');
+  $('back').hidden = false; $('hint').hidden = true; $('tag').hidden = true;
+}
+function backToShop() {
+  if (mode !== 'focus') return;
+  mode = 'returning'; focusId = null;
+  const h = homeFor(); goal.pos = h.pos; goal.target = h.target;
+  $('panel').classList.remove('on'); $('panel').setAttribute('aria-hidden', 'true'); $('back').hidden = true;
+}
+$('back').addEventListener('click', backToShop); $('pClose').addEventListener('click', backToShop);
+addEventListener('keydown', (e) => { if (e.key === 'Escape') backToShop(); });
+document.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => {
+  if (mode === 'closed') { openT = 0.999; openShop(); }
+  setTimeout(() => focusOn(b.dataset.go), mode === 'idle' ? 0 : 600);
+}));
+if (params.get('focus')) setTimeout(() => focusOn(params.get('focus')), 300);
+
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+let downAt = null;
+function pick(ev) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObjects(hitList, false)[0];
+  return hit ? hit.object.userData.spot : null;
+}
+renderer.domElement.addEventListener('pointermove', (ev) => { if (mode !== 'idle') return; hoverId = pick(ev); renderer.domElement.style.cursor = hoverId ? 'pointer' : 'grab'; });
+renderer.domElement.addEventListener('pointerdown', (ev) => { downAt = [ev.clientX, ev.clientY]; });
+renderer.domElement.addEventListener('pointerup', (ev) => {
+  if (!downAt || Math.hypot(ev.clientX - downAt[0], ev.clientY - downAt[1]) > 6) return;
+  if (mode === 'idle') { const id = pick(ev); if (id) focusOn(id); }
+});
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); bloom.setSize(innerWidth, innerHeight); finish.uniforms.res.value.set(innerWidth, innerHeight);
+  if (mode === 'idle') { const h = homeFor(); goal.pos = h.pos; goal.target = h.target; }
+});
+
+/* ---------- loop ---------- */
+const clock = new THREE.Clock(); const v = new THREE.Vector3();
+const A = shop.anim;
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime;
+  if (mode === 'opening') {
+    openT = Math.min(1, openT + dt / (reduced ? 0.01 : 2.0));
+    const e = 1 - Math.pow(1 - openT, 3);
+    A.shopShutter.forEach((s) => (s.scale.y = 1 - 0.97 * e));
+    shop.setLit(Math.max(0, (openT - 0.3) / 0.7));
+    if (openT >= 1) { mode = 'idle'; controls.enabled = true; $('hint').hidden = false; A.shopShutter.forEach((s) => (s.visible = false)); }
+  }
+  if (goal.pos) {
+    const k = 1 - Math.exp(-dt * (reduced ? 30 : 3));
+    camera.position.lerp(goal.pos, k); controls.target.lerp(goal.target, k);
+    if (camera.position.distanceTo(goal.pos) < 0.01) { goal.pos = null; if (mode === 'returning') { mode = 'idle'; controls.enabled = true; $('hint').hidden = false; } }
+  }
+  const want = mode === 'focus' && innerWidth > 640 ? Math.min(220, innerWidth * 0.15) : 0;
+  offsetX += (want - offsetX) * (1 - Math.exp(-dt * 4));
+  if (Math.abs(offsetX) > 0.5) camera.setViewOffset(innerWidth, innerHeight, offsetX, 0, innerWidth, innerHeight); else camera.clearViewOffset();
+  if (controls.enabled && !goal.pos) controls.update(); else camera.lookAt(controls.target);
+  bokeh.uniforms.focus.value = camera.position.distanceTo(controls.target);
+
+  if (!reduced) {
+    const rp = A.rain.geometry.attributes.position;
+    for (let i = 0; i < A.RAIN; i++) { let y = rp.array[i * 6 + 1] - dt * 6; if (y < 0.05) y += 9; rp.array[i * 6 + 1] = y; rp.array[i * 6 + 4] = y - 0.2; }
+    rp.needsUpdate = true;
+    for (const s of A.smoke) {
+      s.userData.t = (s.userData.t + dt * 0.25) % 1; const u = s.userData.t;
+      s.position.set(A.smokeFrom.x + Math.sin(u * 9 + t) * 0.02 * u, A.smokeFrom.y + u * 0.4, A.smokeFrom.z + Math.cos(u * 7) * 0.015);
+      s.scale.setScalar(0.03 + u * 0.12); s.material.opacity = Math.sin(u * Math.PI) * 0.2;
+    }
+    A.vFace.material.emissiveIntensity = Math.sin(t * 11) > 0.97 ? 0.12 : 0.3;
+    if (focusId === 'safe') A.dial.rotation.z += dt * 2.4;
+  }
+  for (const [id, h] of Object.entries(shop.hotspots)) {
+    const target = mode === 'idle' && !params.has('shot') ? (hoverId === id ? 1 : 0.7) : 0;
+    h.ring.material.opacity += (target - h.ring.material.opacity) * Math.min(1, dt * 8);
+    const d = camera.position.distanceTo(h.anchor);
+    h.ring.scale.setScalar(d * ((hoverId === id ? 0.034 : 0.026) + Math.sin(t * 2.5 + id.length) * 0.002));
+  }
+  const tag = $('tag');
+  if (mode === 'idle' && hoverId) {
+    const h = shop.hotspots[hoverId]; v.copy(h.anchor).project(camera);
+    tag.style.left = ((v.x + 1) / 2 * innerWidth) + 'px'; tag.style.top = ((1 - v.y) / 2 * innerHeight) + 'px';
+    $('tagLabel').textContent = INFO[hoverId].label; $('tagSub').textContent = INFO[hoverId].sub; tag.hidden = false;
+  } else tag.hidden = true;
+  composer.render();
+  requestAnimationFrame(frame);
+}
+frame();
+window.__shop = { camera, controls, scene, shop };
+</script>
