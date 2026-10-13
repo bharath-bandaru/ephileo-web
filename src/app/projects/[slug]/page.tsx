@@ -1,704 +1,95 @@
-'use client';
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { getProject, projects } from '@/lib/projects';
+import { posts } from '@/lib/blog';
+import { SITE_NAME, SITE_URL } from '@/lib/site';
+import ProjectView from './ProjectView';
 
-import { useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
-import Image from 'next/image';
-import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
-import gsap from 'gsap';
-import { getProject, projects, type Project } from '@/lib/projects';
+type Props = { params: Promise<{ slug: string }> };
 
-export default function ProjectPage() {
-  const params = useParams();
-  const router = useRouter();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const project = getProject(params.slug as string);
-  const [contactOpen, setContactOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle');
-
-  useEffect(() => {
-    if (containerRef.current) {
-      gsap.fromTo(
-        containerRef.current,
-        { opacity: 0 },
-        { opacity: 1, duration: 0.8, ease: 'power2.out', delay: 0.1 }
-      );
-    }
-  }, []);
-
-  const handleBackClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    if (containerRef.current) {
-      gsap.to(containerRef.current, {
-        opacity: 0,
-        duration: 0.5,
-        ease: 'power2.in',
-        onComplete: () => {
-          router.push('/');
-        },
-      });
-    }
-  };
-
-  const handleContactSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setSubmitStatus('idle');
-
-    const form = e.currentTarget;
-    const formData = new FormData(form);
-    const data = {
-      name: formData.get('name') as string,
-      email: formData.get('email') as string,
-      message: formData.get('message') as string,
-    };
-
-    try {
-      const response = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-
-      if (response.ok) {
-        setSubmitStatus('success');
-        form.reset();
-        setTimeout(() => setSubmitStatus('idle'), 5000);
-      } else {
-        setSubmitStatus('error');
-      }
-    } catch {
-      setSubmitStatus('error');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  if (!project) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-4xl font-bold text-white mb-4">Project not found</h1>
-          <Link
-            href="/"
-            className="text-zinc-400 hover:text-white transition-colors"
-          >
-            Go back home
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div ref={containerRef} className="min-h-screen bg-black" style={{ opacity: 0 }}>
-      {/* Back button */}
-      <motion.div
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-        className="fixed top-6 left-6 z-50"
-      >
-        <motion.button
-          onClick={handleBackClick}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md text-white text-sm font-medium hover:bg-white/20 transition-colors cursor-pointer"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M19 12H5M12 19l-7-7 7-7" />
-          </svg>
-          Back
-        </motion.button>
-      </motion.div>
-
-      {/* Hero Section */}
-      <div className="relative h-[60vh] overflow-hidden">
-        <motion.div
-          initial={{ scale: 1.1 }}
-          animate={{ scale: 1 }}
-          transition={{ duration: 1, ease: 'easeOut' }}
-          className="absolute inset-0"
-        >
-          <Image
-            src={project.banner}
-            alt={project.name}
-            fill
-            className="object-cover"
-            priority
-          />
-          <div
-            className="absolute inset-0"
-            style={{
-              background: `linear-gradient(to bottom, transparent, ${project.color}30, black)`,
-            }}
-          />
-        </motion.div>
-
-        {/* Project Logo and Title */}
-        <div className="absolute bottom-0 left-0 right-0 p-8 md:p-16">
-          <div className="max-w-6xl mx-auto flex items-end gap-6">
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.3 }}
-              className="w-24 h-24 md:w-32 md:h-32 rounded-3xl overflow-hidden shadow-2xl bg-black p-3 md:p-4"
-            >
-              <Image
-                src={project.logo}
-                alt={project.name}
-                width={128}
-                height={128}
-                className="w-full h-full object-contain"
-              />
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 50 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-            >
-              <h1 className="text-4xl md:text-6xl font-bold text-white mb-2">
-                {project.name}
-              </h1>
-              <p className="text-xl text-zinc-300">{project.tagline}</p>
-            </motion.div>
-          </div>
-        </div>
-      </div>
-
-      {/* Content Section */}
-      <div className="px-8 md:px-16 pb-12 md:pb-0">
-        <div className="max-w-6xl mx-auto">
-          <div className="grid md:grid-cols-3 gap-12">
-            {/* Main Content */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.5 }}
-              className="md:col-span-2"
-            >
-              {/* Get the App — mobile only, shown above the fold */}
-              <div className="md:hidden mb-10">
-                <GetTheApp project={project} />
-              </div>
-
-              <h2 className="text-2xl font-bold text-white mb-6">About</h2>
-              <p className="text-zinc-400 text-lg leading-relaxed mb-8">
-                {project.description}
-              </p>
-
-              <div className="grid grid-cols-2 gap-6 mb-12">
-                <div className="bg-zinc-900 rounded-2xl p-6">
-                  <p className="text-zinc-500 text-sm mb-1">Type</p>
-                  <p className="text-white font-semibold capitalize">
-                    {project.type}
-                  </p>
-                </div>
-                <div className="bg-zinc-900 rounded-2xl p-6">
-                  <p className="text-zinc-500 text-sm mb-1">Status</p>
-                  <p
-                    className="font-semibold"
-                    style={{ color: project.accentColor }}
-                  >
-                    {project.status === 'coming-soon' ? 'Coming Soon' : 'Released'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Roamates Post */}
-              {project.id === 'roamates' && (
-                <div className="rounded-2xl overflow-hidden mb-12">
-                  <Image
-                    src="/projects/roamates/roamates-post.jpg"
-                    alt={`${project.name} post`}
-                    width={1200}
-                    height={1200}
-                    className="w-full h-auto object-cover"
-                  />
-                </div>
-              )}
-
-              {/* Features Section */}
-              <h2 className="text-2xl font-bold text-white mb-6">Features</h2>
-              <div className="space-y-4 mb-12">
-                {project.features && project.features.length > 0 ? (
-                  project.features.map((feature) => (
-                    <FeatureItem
-                      key={feature.title}
-                      color={project.color}
-                      icon={feature.icon}
-                      title={feature.title}
-                      description={feature.description}
-                    />
-                  ))
-                ) : project.type === 'game' ? (
-                  <>
-                    <FeatureItem
-                      color={project.color}
-                      title="Engaging Gameplay"
-                      description="Hours of entertainment with carefully crafted mechanics"
-                    />
-                    <FeatureItem
-                      color={project.color}
-                      title="Beautiful Design"
-                      description="Stunning visuals that delight the senses"
-                    />
-                    <FeatureItem
-                      color={project.color}
-                      title="Play Anywhere"
-                      description="Available on multiple platforms for gaming on the go"
-                    />
-                  </>
-                ) : (
-                  <>
-                    <FeatureItem
-                      color={project.color}
-                      title="Intuitive Interface"
-                      description="Designed for ease of use without sacrificing power"
-                    />
-                    <FeatureItem
-                      color={project.color}
-                      title="Real-Time Sync"
-                      description="Live locations, balances, and updates across your group"
-                    />
-                    <FeatureItem
-                      color={project.color}
-                      title="Privacy First"
-                      description="Your data stays yours, always secure"
-                    />
-                  </>
-                )}
-              </div>
-            </motion.div>
-
-            {/* Sidebar */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.6 }}
-              className="space-y-6"
-            >
-              {/* Download buttons — desktop only (mobile copy is at the top) */}
-              <div className="hidden md:block">
-                <GetTheApp project={project} />
-              </div>
-
-              {project.status === 'coming-soon' && (
-                <div
-                  className="rounded-2xl p-6"
-                  style={{ backgroundColor: project.color + '20' }}
-                >
-                  <h3 className="text-lg font-semibold text-white mb-2">
-                    Coming Soon
-                  </h3>
-                  <p className="text-zinc-400 text-sm">
-                    We&apos;re putting the finishing touches on {project.name}. Stay
-                    tuned for updates!
-                  </p>
-                </div>
-              )}
-
-              {/* Product Hunt Badge */}
-              {project.id === 'roamates' && (
-                <div className="flex justify-center">
-                  <a
-                    href="https://www.producthunt.com/products/roamates?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-roamates"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      alt="roamates - The all-in-one app for roommates and travel companions. | Product Hunt"
-                      width={250}
-                      height={54}
-                      src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1095702&theme=light&t=1773340998713"
-                    />
-                  </a>
-                </div>
-              )}
-
-              {/* Contact */}
-              {project.id === 'roamates' && (
-                <div className="bg-zinc-900 rounded-2xl p-6">
-                  <h3 className="text-lg font-semibold text-white mb-2">
-                    Need Help?
-                  </h3>
-                  <p className="text-zinc-500 text-sm mb-4">
-                    Have a question, feedback, or need support?
-                  </p>
-
-                  {!contactOpen && (
-                    <motion.button
-                      onClick={() => setContactOpen(true)}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl cursor-pointer"
-                      style={{ backgroundColor: project.color + '20', color: project.accentColor }}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="18"
-                        height="18"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-                      </svg>
-                      Contact Us
-                    </motion.button>
-                  )}
-
-                  <motion.div
-                    initial={false}
-                    animate={{
-                      height: contactOpen ? 'auto' : 0,
-                      opacity: contactOpen ? 1 : 0,
-                    }}
-                    transition={{ duration: 0.3, ease: 'easeInOut' }}
-                    className="overflow-hidden"
-                  >
-                    <form onSubmit={handleContactSubmit} className="space-y-4">
-                      <div>
-                        <input
-                          type="text"
-                          name="name"
-                          className="w-full px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#10B981]/50 transition-all"
-                          placeholder="Your name"
-                          required
-                          disabled={isSubmitting}
-                        />
-                      </div>
-                      <div>
-                        <input
-                          type="email"
-                          name="email"
-                          className="w-full px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#10B981]/50 transition-all"
-                          placeholder="your@email.com"
-                          required
-                          disabled={isSubmitting}
-                        />
-                      </div>
-                      <div>
-                        <textarea
-                          name="message"
-                          rows={3}
-                          className="w-full px-3 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-[#10B981]/50 transition-all resize-none"
-                          placeholder="Your message..."
-                          required
-                          disabled={isSubmitting}
-                        />
-                      </div>
-
-                      {submitStatus === 'success' && (
-                        <p className="text-[#10B981] text-sm">Message sent! We&apos;ll get back to you soon.</p>
-                      )}
-                      {submitStatus === 'error' && (
-                        <p className="text-red-400 text-sm">Failed to send. Please try again.</p>
-                      )}
-
-                      <motion.button
-                        type="submit"
-                        whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
-                        whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
-                        disabled={isSubmitting}
-                        className="w-full px-4 py-2.5 rounded-lg bg-[#10B981] text-white text-sm font-medium hover:bg-[#0ea472] transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                      >
-                        {isSubmitting ? 'Sending...' : 'Send Message'}
-                      </motion.button>
-                    </form>
-                  </motion.div>
-                </div>
-              )}
-
-              {/* Legal */}
-              <div className="bg-zinc-900 rounded-2xl p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Legal</h3>
-                <div className="space-y-3">
-                  <Link
-                    href={`/projects/${project.id}/terms`}
-                    className="flex items-center justify-between text-zinc-400 hover:text-white transition-colors"
-                  >
-                    <span>Terms & Conditions</span>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                  </Link>
-                  <Link
-                    href={`/projects/${project.id}/privacy`}
-                    className="flex items-center justify-between text-zinc-400 hover:text-white transition-colors"
-                  >
-                    <span>Privacy Policy</span>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                  </Link>
-                  {project.id === 'roamates' && (
-                    <Link
-                      href={`/projects/${project.id}/delete-account`}
-                      className="flex items-center justify-between text-zinc-400 hover:text-red-400 transition-colors"
-                    >
-                      <span>Request Account Deletion</span>
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        width="16"
-                        height="16"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M5 12h14M12 5l7 7-7 7" />
-                      </svg>
-                    </Link>
-                  )}
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        </div>
-      </div>
-
-      {/* Other Projects */}
-      <div className="px-8 md:px-16 py-16 border-t border-zinc-800">
-        <div className="max-w-6xl mx-auto">
-          <h2 className="text-2xl font-bold text-white mb-8">Other Projects</h2>
-          <div className="grid md:grid-cols-2 gap-6">
-            {projects
-              .filter((p) => p.id !== project.id)
-              .map((otherProject) => (
-                <Link key={otherProject.id} href={`/projects/${otherProject.id}`}>
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    className="group flex items-center gap-4 p-4 rounded-2xl bg-zinc-900 hover:bg-zinc-800 transition-colors"
-                  >
-                    <div
-                      className="w-16 h-16 rounded-xl overflow-hidden p-2"
-                      style={{ backgroundColor: otherProject.color + '20' }}
-                    >
-                      <Image
-                        src={otherProject.logo}
-                        alt={otherProject.name}
-                        width={64}
-                        height={64}
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-white font-semibold">
-                        {otherProject.name}
-                      </h3>
-                      <p className="text-zinc-500 text-sm">
-                        {otherProject.tagline}
-                      </p>
-                    </div>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      width="20"
-                      height="20"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="text-zinc-500 group-hover:text-white transition-colors"
-                    >
-                      <path d="M5 12h14M12 5l7 7-7 7" />
-                    </svg>
-                  </motion.div>
-                </Link>
-              ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="px-8 md:px-16 py-8 border-t border-zinc-800">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <Link href="/" className="text-xl font-bold text-white">
-            ephileo
-          </Link>
-          <p className="text-zinc-500 text-sm">
-            &copy; {new Date().getFullYear()} Ephileo. All rights reserved.
-          </p>
-        </div>
-      </footer>
-    </div>
-  );
+export function generateStaticParams() {
+  return projects.map((p) => ({ slug: p.id }));
 }
 
-function GetTheApp({ project }: { project: Project }) {
-  if (!(project.status === 'released' && project.links)) return null;
+export const dynamicParams = false;
 
-  return (
-    <div className="bg-zinc-900 rounded-2xl p-6">
-      <h3 className="text-lg font-semibold text-white mb-4">Get the App</h3>
-      <div className="flex flex-col sm:flex-row md:flex-col gap-4">
-        {project.links.appStore && (
-          <Link
-            href={project.links.appStore}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1"
-          >
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-white text-black font-medium cursor-pointer"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
-              </svg>
-              App Store
-            </motion.button>
-          </Link>
-        )}
-        {project.links.playStore && (
-          <Link
-            href={project.links.playStore}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1"
-          >
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl bg-zinc-800 text-white font-medium cursor-pointer"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <path d="M3 20.5v-17c0-.59.34-1.11.84-1.35L13.69 12l-9.85 9.85c-.5-.24-.84-.76-.84-1.35zm13.81-5.38L6.05 21.34l8.49-8.49 2.27 2.27zm3.35-4.31c.34.27.64.71.64 1.19s-.09.82-.64 1.19l-2.11 1.21-2.5-2.5 2.5-2.5 2.11 1.21v.2zM6.05 2.66l10.76 6.22-2.27 2.27L6.05 2.66z" />
-              </svg>
-              Google Play
-            </motion.button>
-          </Link>
-        )}
-        {project.links.website && (
-          <Link
-            href={project.links.website}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1"
-          >
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full flex items-center justify-center gap-3 px-4 py-3 rounded-xl cursor-pointer"
-              style={{ backgroundColor: project.color + '30', color: project.accentColor }}
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <circle cx="12" cy="12" r="10" />
-                <line x1="2" y1="12" x2="22" y2="12" />
-                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-              </svg>
-              Play Online
-            </motion.button>
-          </Link>
-        )}
-      </div>
-    </div>
-  );
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { slug } = await params;
+  const project = getProject(slug);
+  if (!project) return {};
+  const url = `/projects/${project.id}`;
+  return {
+    title: { absolute: project.seo.title },
+    description: project.seo.description,
+    keywords: project.seo.keywords,
+    alternates: { canonical: url },
+    openGraph: {
+      type: 'website',
+      url,
+      title: project.seo.title,
+      description: project.seo.description,
+      siteName: SITE_NAME,
+      images: [{ url: project.banner, alt: project.name }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: project.seo.title,
+      description: project.seo.description,
+      images: [project.banner],
+    },
+  };
 }
 
-function FeatureItem({
-  color,
-  icon,
-  title,
-  description,
-}: {
-  color: string;
-  icon?: string;
-  title: string;
-  description: string;
-}) {
+export default async function ProjectPage({ params }: Props) {
+  const { slug } = await params;
+  const project = getProject(slug);
+  if (!project) notFound();
+
+  const url = `${SITE_URL}/projects/${project.id}`;
+  const operatingSystems = [
+    project.links?.appStore && 'iOS',
+    project.links?.playStore && 'Android',
+    project.links?.website && 'Web',
+  ].filter(Boolean);
+
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': project.links?.appStore || project.links?.playStore ? 'MobileApplication' : 'WebApplication',
+        '@id': `${url}#app`,
+        name: project.name,
+        description: project.seo.description,
+        url,
+        image: `${SITE_URL}${project.logo}`,
+        screenshot: `${SITE_URL}${project.banner}`,
+        applicationCategory: project.type === 'game' ? 'GameApplication' : 'FinanceApplication',
+        operatingSystem: operatingSystems.join(', '),
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+        featureList: project.features?.map((f) => f.title),
+        publisher: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
+        sameAs: [project.links?.appStore, project.links?.playStore, project.links?.website].filter(Boolean),
+        subjectOf: posts
+          .filter((p) => p.project === project.id)
+          .map((p) => ({ '@type': 'BlogPosting', headline: p.title, url: `${SITE_URL}/blog/${p.slug}` })),
+      },
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home', item: SITE_URL },
+          { '@type': 'ListItem', position: 2, name: project.name, item: url },
+        ],
+      },
+    ],
+  };
+
   return (
-    <div className="flex items-start gap-4">
-      <div
-        className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{ backgroundColor: color + '30' }}
-      >
-        {icon ? (
-          <span className="text-xl leading-none" aria-hidden="true">
-            {icon}
-          </span>
-        ) : (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke={color}
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M20 6L9 17l-5-5" />
-          </svg>
-        )}
-      </div>
-      <div>
-        <h3 className="text-white font-semibold mb-1">{title}</h3>
-        <p className="text-zinc-500 text-sm">{description}</p>
-      </div>
-    </div>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <ProjectView />
+    </>
   );
 }
