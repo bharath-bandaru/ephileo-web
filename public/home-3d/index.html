@@ -90,7 +90,7 @@ body { margin: 0; background: var(--night); color: var(--paper); font-family: va
     Open workshop
   </button>
 </div>
-<div class="hint" id="hint" hidden><b></b>Click anything that glows &middot; drag to look around</div>
+<div class="hint" id="hint" hidden><b></b>Pick a plate on the sign rack &middot; drag to look around</div>
 <div class="tag" id="tag" hidden><div><strong id="tagLabel"></strong><span id="tagSub"></span></div></div>
 <button class="back" id="back" type="button" hidden>
   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg>
@@ -118,7 +118,6 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
@@ -138,7 +137,7 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.35;
+renderer.toneMappingExposure = 1.2;
 $('stage').appendChild(renderer.domElement);
 
 try { await Promise.race([Promise.all(['400 60px Bungee', '600 20px "IBM Plex Mono"', '700 40px Kalam'].map((f) => document.fonts.load(f))), new Promise((r) => setTimeout(r, 2500))]); } catch (e) {}
@@ -150,15 +149,52 @@ await Promise.all([
 setLoad(5);
 const shop = await buildShop(renderer, (p) => setLoad(5 + p * 90));
 const scene = new THREE.Scene();
-{ const c = document.createElement('canvas'); c.width = 4; c.height = 256; const g = c.getContext('2d'); const gr = g.createLinearGradient(0, 0, 0, 256);
-  gr.addColorStop(0, '#0B1A24'); gr.addColorStop(0.55, '#123040'); gr.addColorStop(1, '#0A1016'); g.fillStyle = gr; g.fillRect(0, 0, 4, 256);
-  const bgTex = new THREE.CanvasTexture(c); bgTex.colorSpace = THREE.SRGBColorSpace; scene.background = bgTex; }
-scene.fog = new THREE.Fog(0x0E1C26, 18, 34);
+// Sky and fog share one colour so the endless ground melts into the night with no horizon line.
+scene.background = new THREE.Color(0x0F2230);
+scene.fog = new THREE.Fog(0x0F2230, 18, 34);
 scene.environment = shop.envMap;
 scene.environmentIntensity = 0.45;
 scene.add(shop.root);
 
-const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.05, 120);
+const camera = new THREE.PerspectiveCamera(32, innerWidth / innerHeight, 0.05, 140);
+
+/* ---------- night sky: gradient dome, stars, a quiet moon and drifting clouds (no glow, no glare) ---------- */
+const sky = new THREE.Group(); scene.add(sky);
+const dome = new THREE.Mesh(new THREE.SphereGeometry(120, 48, 24), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false,
+  uniforms: { horizon: { value: scene.fog.color.clone() }, mid: { value: new THREE.Color(0x0C2236) }, top: { value: new THREE.Color(0x050C1A) } },
+  vertexShader: 'varying vec3 vDir; void main() { vDir = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+  fragmentShader: `uniform vec3 horizon; uniform vec3 mid; uniform vec3 top; varying vec3 vDir;
+    void main() { float h = max(vDir.y, 0.0); vec3 c = mix(horizon, mid, smoothstep(0.0, 0.25, h)); c = mix(c, top, smoothstep(0.25, 0.9, h)); gl_FragColor = vec4(c, 1.0); }`,
+}));
+dome.renderOrder = -1; sky.add(dome);
+{ // stars on the upper sky only
+  const n = 700, pos = new Float32Array(n * 3), col = new Float32Array(n * 3); let sd = 4242; const rnd = () => ((sd = sd * 16807 % 2147483647) / 2147483647);
+  for (let i = 0; i < n; i++) {
+    const y = 0.12 + rnd() * 0.88, a = rnd() * Math.PI * 2, r = Math.sqrt(1 - y * y);
+    pos.set([Math.cos(a) * r * 110, y * 110, Math.sin(a) * r * 110], i * 3);
+    const k = 0.35 + rnd() * 0.55; col.set([k * 0.9, k * 0.95, k], i * 3);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  sky.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 1.6, sizeAttenuation: false, vertexColors: true, fog: false, depthWrite: false })));
+}
+const moonTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d'); let sd = 9; const rnd = () => ((sd = sd * 16807 % 2147483647) / 2147483647);
+  g.fillStyle = '#D9DED8'; g.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 16; i++) { g.fillStyle = `rgba(120,132,138,${0.12 + rnd() * 0.16})`; g.beginPath(); g.arc(rnd() * 128, rnd() * 128, 5 + rnd() * 16, 0, 7); g.fill(); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+const moon = new THREE.Mesh(new THREE.CircleGeometry(1.7, 48), new THREE.MeshBasicMaterial({ map: moonTex, color: 0xC4CCCF, fog: false }));
+// upper left of the default view
+moon.position.set(-0.72, 0.08, -0.69).normalize().multiplyScalar(105); moon.lookAt(0, 0, 0); sky.add(moon);
+const cloudTex = (() => { const c = document.createElement('canvas'); c.width = 256; c.height = 128; const g = c.getContext('2d'); let sd = 77; const rnd = () => ((sd = sd * 16807 % 2147483647) / 2147483647);
+  for (let i = 0; i < 14; i++) { const x = 40 + rnd() * 176, y = 50 + rnd() * 40, r = 18 + rnd() * 30, gr = g.createRadialGradient(x, y, 0, x, y, r);
+    gr.addColorStop(0, 'rgba(255,255,255,0.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, 256, 128); }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+const clouds = new THREE.Group(); sky.add(clouds);
+for (let i = 0; i < 18; i++) {
+  const a = i / 18 * Math.PI * 2 + Math.sin(i * 7.3) * 0.3, r = 55 + (i * 37 % 22), s = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloudTex, color: 0x6D84A0, transparent: true, opacity: 0.32 + (i % 3) * 0.08, fog: false, depthWrite: false }));
+  s.position.set(Math.cos(a) * r, 4 + (i * 13 % 8), Math.sin(a) * r); s.scale.set(30 + (i % 4) * 8, 11 + (i % 3) * 3, 1); clouds.add(s);
+}
+
 const TARGET = new THREE.Vector3(-0.35, 2.95, 0.0);
 function homeFor() {
   const a = innerWidth / innerHeight;
@@ -178,7 +214,7 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.copy(TARGET);
 controls.enableDamping = true; controls.enablePan = false;
 controls.minDistance = 4; controls.maxDistance = Math.max(45, homeFor().pos.distanceTo(TARGET));
-controls.minPolarAngle = 1.05; controls.maxPolarAngle = 1.62;
+controls.minPolarAngle = 1.05; controls.maxPolarAngle = 1.5; // stay above the endless ground
 controls.enabled = false;
 
 const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(innerWidth, innerHeight, { type: THREE.HalfFloatType, samples: 4 }));
@@ -188,8 +224,8 @@ composer.addPass(new RenderPass(scene, camera));
 const bokeh = new BokehPass(scene, camera, { focus: 12, aperture: 0.0045, maxblur: 0.012 });
 bokeh.enabled = false; // keep everything sharp
 composer.addPass(bokeh);
-const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.35, 0.45, 0.95);
-composer.addPass(bloom); composer.addPass(new OutputPass());
+// No bloom: bright surfaces stay crisp, with no glare halos.
+composer.addPass(new OutputPass());
 // photographed-miniature finish: teal/orange split tone, gentle contrast, vignette, tilt-shift blur away from a focus band
 const finish = new ShaderPass({
   uniforms: { tDiffuse: { value: null }, res: { value: new THREE.Vector2(innerWidth, innerHeight) }, focusY: { value: 0.5 }, band: { value: 0.2 }, blur: { value: 0.0 } },
@@ -235,18 +271,16 @@ const INFO = {
   rotary: { label: 'CONTACT', sub: 'the wall telephone', p: { job: 'EPHILEO WORKSHOP · WALL PHONE', kind: 'ON THE WALL · TELEPHONE', name: 'Call the workshop', tag: 'Leave a message, we’ll ring back.', desc: 'Got an idea, a bug, or just want to say hi? Pick up the phone and leave a note for the team.', status: 'Answering', plat: 'Message form', links: [['Leave a message', '#contact']] } },
 };
 
-/* ---------- rings + picking ---------- */
-const ringTex = (() => { const c = document.createElement('canvas'); c.width = c.height = 128; const g = c.getContext('2d');
-  g.strokeStyle = '#FFB868'; g.lineWidth = 7; g.shadowColor = '#FFB868'; g.shadowBlur = 18; g.beginPath(); g.arc(64, 64, 40, 0, 7); g.stroke();
-  g.fillStyle = 'rgba(255,184,104,0.18)'; g.beginPath(); g.arc(64, 64, 38, 0, 7); g.fill(); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t; })();
+/* ---------- picking: signpost boards navigate; the objects stay clickable with no marker ---------- */
 const hitList = [];
+const addHits = (o, id, anchor) => o.traverse((m) => { if (m.isMesh) { m.userData.spot = id; m.userData.anchor = anchor; hitList.push(m); } });
 for (const [id, h] of Object.entries(shop.hotspots)) {
-  const ring = new THREE.Sprite(new THREE.SpriteMaterial({ map: ringTex, transparent: true, depthWrite: false, depthTest: false, opacity: 0 }));
-  ring.position.copy(h.anchor); ring.scale.setScalar(0.32); ring.renderOrder = 10; scene.add(ring); h.ring = ring;
-  h.objs.forEach((o) => o.traverse((m) => { if (m.isMesh) { m.userData.spot = id; hitList.push(m); } }));
+  h.objs.forEach((o) => addHits(o, id, h.anchor));
+  const sign = shop.signs[id];
+  if (sign) addHits(sign, id, sign.getWorldPosition(new THREE.Vector3()));
 }
 
-let mode = 'closed', openT = 0, focusId = null, hoverId = null, offsetX = 0;
+let mode = 'closed', openT = 0, focusId = null, hoverId = null, hoverAt = null, hoverSign = null, offsetX = 0;
 const goal = { pos: null, target: null };
 $('openBtn').disabled = false;
 
@@ -298,19 +332,23 @@ function pick(ev) {
   const r = renderer.domElement.getBoundingClientRect();
   ndc.set(((ev.clientX - r.left) / r.width) * 2 - 1, -((ev.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ndc, camera);
-  const hit = ray.intersectObjects(hitList, false)[0];
-  return hit ? hit.object.userData.spot : null;
+  return ray.intersectObjects(hitList, false)[0]?.object.userData ?? null;
 }
-renderer.domElement.addEventListener('pointermove', (ev) => { if (mode !== 'idle') return; hoverId = pick(ev); renderer.domElement.style.cursor = hoverId ? 'pointer' : 'grab'; });
+renderer.domElement.addEventListener('pointermove', (ev) => {
+  if (mode !== 'idle') return;
+  const hit = pick(ev); hoverId = hit?.spot ?? null; hoverAt = hit?.anchor ?? null;
+  hoverSign = hoverId && shop.signs[hoverId] && hoverAt !== shop.hotspots[hoverId].anchor ? hoverId : null;
+  renderer.domElement.style.cursor = hoverId ? 'pointer' : 'grab';
+});
 renderer.domElement.addEventListener('pointerdown', (ev) => { downAt = [ev.clientX, ev.clientY]; });
 renderer.domElement.addEventListener('pointerup', (ev) => {
   if (!downAt || Math.hypot(ev.clientX - downAt[0], ev.clientY - downAt[1]) > 6) return;
-  if (mode === 'idle') { const id = pick(ev); if (id) focusOn(id); }
+  if (mode === 'idle') { const id = pick(ev)?.spot; if (id) focusOn(id); }
 });
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
   frameFog(); controls.maxDistance = Math.max(45, homeFor().pos.distanceTo(TARGET));
-  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); bloom.setSize(innerWidth, innerHeight); finish.uniforms.res.value.set(innerWidth, innerHeight);
+  renderer.setSize(innerWidth, innerHeight); composer.setSize(innerWidth, innerHeight); finish.uniforms.res.value.set(innerWidth, innerHeight);
   if (mode === 'idle') { const h = homeFor(); goal.pos = h.pos; goal.target = h.target; }
 });
 
@@ -337,7 +375,10 @@ function frame() {
   if (controls.enabled && !goal.pos) controls.update(); else camera.lookAt(controls.target);
   bokeh.uniforms.focus.value = camera.position.distanceTo(controls.target);
 
+  sky.position.copy(camera.position); // sky stays infinitely far away
   if (!reduced) {
+    clouds.rotation.y += dt * 0.006;
+    for (const c of A.trees) { c.rotation.z = Math.sin(t * 0.9 + c.userData.phase) * 0.025; c.rotation.x = Math.sin(t * 0.7 + c.userData.phase * 1.3) * 0.018; }
     const rp = A.rain.geometry.attributes.position;
     for (let i = 0; i < A.RAIN; i++) { let y = rp.array[i * 6 + 1] - dt * 6; if (y < 0.05) y += 9; rp.array[i * 6 + 1] = y; rp.array[i * 6 + 4] = y - 0.2; }
     rp.needsUpdate = true;
@@ -349,15 +390,14 @@ function frame() {
     A.vFace.material.emissiveIntensity = Math.sin(t * 11) > 0.97 ? 0.12 : 0.3;
     if (focusId === 'safe') A.dial.rotation.z += dt * 2.4;
   }
-  for (const [id, h] of Object.entries(shop.hotspots)) {
-    const target = mode === 'idle' && !params.has('shot') ? (hoverId === id ? 1 : 0.7) : 0;
-    h.ring.material.opacity += (target - h.ring.material.opacity) * Math.min(1, dt * 8);
-    const d = camera.position.distanceTo(h.anchor);
-    h.ring.scale.setScalar(d * ((hoverId === id ? 0.034 : 0.026) + Math.sin(t * 2.5 + id.length) * 0.002));
+  for (const [id, sign] of Object.entries(shop.signs)) {
+    const face = sign.userData.face, rest = face.userData.rest ??= face.emissiveIntensity;
+    const target = mode === 'idle' && hoverSign === id ? rest + 0.25 : rest;
+    face.emissiveIntensity += (target - face.emissiveIntensity) * Math.min(1, dt * 10);
   }
   const tag = $('tag');
   if (mode === 'idle' && hoverId) {
-    const h = shop.hotspots[hoverId]; v.copy(h.anchor).project(camera);
+    v.copy(hoverAt).project(camera);
     tag.style.left = ((v.x + 1) / 2 * innerWidth) + 'px'; tag.style.top = ((1 - v.y) / 2 * innerHeight) + 'px';
     $('tagLabel').textContent = INFO[hoverId].label; $('tagSub').textContent = INFO[hoverId].sub; tag.hidden = false;
   } else tag.hidden = true;

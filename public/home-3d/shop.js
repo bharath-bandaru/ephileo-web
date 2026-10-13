@@ -466,15 +466,15 @@ export async function buildShop(renderer, onProgress = () => {}) {
     return cab;
   }
 
-  /* ---------- plinth + L-shaped pavement ---------- */
-  const padDepth = Z0 - ZB + 2.2, padZ = (ZB + 2.0) / 2;
-  const pave = put(root, rbox(8.4, 0.2, padDepth, kitMat(PAVE, 8.4, padDepth), 0.02), -0.2, -0.1, padZ); support.push(pave);
-  put(root, rbox(8.43, 0.025, padDepth + 0.03, mat.baseRed, 0.006), -0.2, -0.2, padZ);
-  put(root, rbox(8.46, 0.07, padDepth + 0.06, mat.baseGreen, 0.01), -0.2, -0.25, padZ);
+  /* ---------- endless street: pavement and kerbs run off into the fog, road a step below ---------- */
+  const SW = 160, SX1 = 4.8, SZ1 = 3.2; // pavement size; its front-right corner is the kerb corner
+  const pave = put(root, rbox(SW, 0.2, SW, kitMat(PAVE, SW, SW), 0.02), SX1 - SW / 2, -0.1, SZ1 - SW / 2); support.push(pave);
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(SW * 2.5, SW * 2.5), pbr('concrete_floor_worn_001', SW * 2.5 / 3, SW * 2.5 / 3, { color: 0x4A5054 }));
+  road.rotation.x = -Math.PI / 2; road.position.y = -0.07; road.receiveShadow = true; root.add(road);
   const kerb = M(0x8E8A82, { roughness: 0.8 });
-  put(root, rbox(8.4, 0.05, 0.2, kerb, 0.01), -0.2, 0.025, 2.3);
-  put(root, rbox(0.2, 0.05, padDepth, kerb, 0.01), 3.9, 0.025, padZ);
-  const drain = put(root, rbox(0.5, 0.012, 0.3, mat.iron, 0.004), 1.0, 0.006, 2.05);
+  put(root, rbox(SW, 0.13, 0.2, kerb, 0.01), SX1 - SW / 2, -0.015, SZ1 - 0.1);
+  put(root, rbox(0.2, 0.13, SW, kerb, 0.01), SX1 - 0.1, -0.015, SZ1 - SW / 2);
+  const drain = put(root, rbox(0.5, 0.012, 0.3, mat.iron, 0.004), 1.0, 0.006, SZ1 - 0.35);
   const manhole = put(root, new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 0.015, 40), M(0x3E4140, { roughness: 0.6, metalness: 0.5 })), 3.2, 0.008, -0.6);
 
   const bld = new THREE.Group(); root.add(bld);
@@ -764,8 +764,8 @@ export async function buildShop(renderer, onProgress = () => {}) {
     c.font = '600 60px "IBM Plex Mono", monospace'; c.fillStyle = '#1B1A17'; c.fillText('PHONES · TVs · CONSOLES', w / 2, 365);
   });
   const sideSign = lightbox(bld, X1 + 0.45, 2.4, (ZS + Z0) / 2 - 0.1, Math.PI / 2, 2.2, 0.68, sideTex, 0.3);
-  const signLight = new THREE.SpotLight(0xF4F8FF, 7, 6, 1.0, 1, 2); signLight.position.set(mbX, 2.1, Z0 + 0.7); signLight.target.position.set(mbX, 0, Z0 + 2.4); bld.add(signLight, signLight.target);
-  const sideLight = new THREE.SpotLight(0xF4F8FF, 6, 6, 1.0, 1, 2); sideLight.position.set(X1 + 0.7, 2.1, -0.5); sideLight.target.position.set(X1 + 2.4, 0, -0.5); bld.add(sideLight, sideLight.target);
+  const signLight = new THREE.SpotLight(0xF4F8FF, 3.5, 6, 1.0, 1, 2); signLight.position.set(mbX, 2.1, Z0 + 0.7); signLight.target.position.set(mbX, 0, Z0 + 2.4); bld.add(signLight, signLight.target);
+  const sideLight = new THREE.SpotLight(0xF4F8FF, 3, 6, 1.0, 1, 2); sideLight.position.set(X1 + 0.7, 2.1, -0.5); sideLight.target.position.set(X1 + 2.4, 0, -0.5); bld.add(sideLight, sideLight.target);
   const vTex = canvasTex(600, 1100, (c, w, h) => {
     c.fillStyle = '#F7F3EA'; c.fillRect(0, 0, w, h); c.fillStyle = '#C3241C'; c.textAlign = 'center'; c.textBaseline = 'middle';
     c.strokeStyle = '#A7BAA8'; c.lineWidth = 8; c.strokeRect(15, 15, w - 30, h - 30);
@@ -780,18 +780,101 @@ export async function buildShop(renderer, onProgress = () => {}) {
   const vSign = lightbox(bld, X1 + OH + 1.0, 3.9, -1.65, Math.PI / 5, 0.72, 2.2, vTex, 0.3);
   for (const by of [0.75, -0.75]) put(bld, rbox(1.0, 0.04, 0.04, mat.iron, 0.01), X1 + OH + 0.5, 3.9 + by, -1.65);
   const vLight = new THREE.PointLight(0xF2F6FF, 0.25, 2, 2); vLight.position.set(X1 + OH + 1.15, 4.2, -1.3); bld.add(vLight);
-  const sTex = canvasTex(400, 560, (c, w, h) => {
-    c.fillStyle = '#C3241C'; c.fillRect(0, 0, w, h); c.strokeStyle = '#F7F3EA'; c.lineWidth = 8; c.strokeRect(14, 14, w - 28, h - 28);
-    c.fillStyle = '#F7F3EA'; c.textAlign = 'center'; signText(c, 'मोबाइल', w / 2, 112, w - 50, 100, HINDI); signText(c, 'టీవీ', w / 2, 238, w - 50, 95, TELUGU); signText(c, 'गेम्स', w / 2, 346, w - 50, 100, HINDI);
-    c.font = '600 30px "IBM Plex Mono", monospace'; c.fillText('PHONES · TVs', w / 2, 440); c.fillText('CONSOLES', w / 2, 480);
+
+  /* ---------- corner sign rack: painted frame with enamel plates hung on chains, one per job ---------- */
+  const rack = new THREE.Group(); put(root, rack, -4.0, 0, 1.62, Math.PI / 2); rack.scale.setScalar(1.5);
+  const rackGreen = M(0x2F5E4A, { roughness: 0.6 }), plateSteel = M(0x2A2F33, { roughness: 0.45, metalness: 0.5 }), chainMat = M(0x3A3D3F, { roughness: 0.4, metalness: 0.8 });
+  for (const sx of [-0.5, 0.5]) {
+    put(rack, rbox(0.07, 2.0, 0.07, rackGreen, 0.012), sx, 1.06, 0);
+    put(rack, rbox(0.1, 0.04, 0.1, rackGreen, 0.01), sx, 2.08, 0);
+    put(rack, rbox(0.09, 0.06, 0.52, rackGreen, 0.012), sx, 0.03, 0);
+    put(rack, rbox(0.13, 0.12, 0.16, rackGreen, 0.015), sx, 0.1, 0);
+  }
+  put(rack, rbox(1.14, 0.08, 0.09, rackGreen, 0.012), 0, 1.96, 0);
+  // hand-painted header plank on top of the beam
+  const headTex = canvasTex(860, 170, (c, w, h) => {
+    c.fillStyle = '#E9DFC8'; c.fillRect(0, 0, w, h); c.fillStyle = '#A8322A'; c.textAlign = 'center'; c.textBaseline = 'middle';
+    c.font = '700 104px Kalam, cursive'; c.fillText('Ephileo', w * 0.32, h * 0.54);
+    c.fillStyle = '#2F5E4A'; c.font = '600 40px "IBM Plex Mono", monospace'; c.fillText('ABOUT US', w * 0.77, h * 0.38); c.fillText('ASK INSIDE', w * 0.77, h * 0.7);
   });
-  const sand = new THREE.Group(); put(root, sand, -3.7, 0, 1.75, 0.3);
-  sand.scale.setScalar(1.55);
-  put(sand, rbox(0.5, 0.7, 0.14, M(0x2A2A2A, { roughness: 0.5, metalness: 0.3 }), 0.02), 0, 0.5, 0);
-  const sFace = new THREE.Mesh(new THREE.PlaneGeometry(0.44, 0.62), new THREE.MeshStandardMaterial({ map: sTex, emissive: 0xffffff, emissiveMap: sTex, emissiveIntensity: 0.45, roughness: 0.3 }));
-  sFace.position.set(0, 0.5, 0.071); sand.add(sFace);
-  for (const lx of [-0.2, 0.2]) put(sand, rbox(0.03, 0.15, 0.1, M(0x2A2A2A), 0.005), lx, 0.075, 0);
-  const sLight = new THREE.PointLight(0xFF5A4A, 1.0, 2.5, 2); sLight.position.set(-3.5, 0.7, 2.2); root.add(sLight);
+  const header = new THREE.Group(); put(rack, header, 0, 2.15, 0);
+  put(header, rbox(0.96, 0.22, 0.05, tableTop, 0.015), 0, 0, 0);
+  const headFace = decal(0.86, 0.17, headTex, { glow: 0.08, roughness: 0.75 }); headFace.position.z = 0.026; header.add(headFace);
+  for (const sx of [-0.4, 0.4]) put(rack, rbox(0.04, 0.06, 0.04, rackGreen, 0.008), sx, 2.02, 0);
+  // gooseneck lamp washing the plates with soft light
+  put(rack, tube([[0, 2.26, -0.02], [0, 2.44, 0], [0, 2.47, 0.16], [0, 2.4, 0.27]], 0.012, rackGreen, 24), 0, 0, 0);
+  put(rack, new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.085, 0.09, 24, 1, true), M(0x2F5E4A, { roughness: 0.6, side: THREE.DoubleSide })), 0, 2.36, 0.29, 0, -0.5);
+  put(rack, new THREE.Mesh(new THREE.SphereGeometry(0.028, 16, 10), new THREE.MeshStandardMaterial({ color: 0xFFE2B0, emissive: 0xFFD9A0, emissiveIntensity: 0.6 })), 0, 2.33, 0.3).castShadow = false;
+  const rackLamp = new THREE.SpotLight(0xFFDDB0, 2.2, 3.2, 0.75, 0.9, 2); rackLamp.position.set(0, 2.3, 0.34); rackLamp.target.position.set(0, 1.05, 0.02); rack.add(rackLamp, rackLamp.target);
+
+  // Plate outlines as point lists (centred, metres), shared by the 3D shape and the canvas print.
+  const arcPts = (cx, cy, r, a0, a1, n) => Array.from({ length: n + 1 }, (_, i) => { const a = a0 + (a1 - a0) * i / n; return [cx + Math.cos(a) * r, cy + Math.sin(a) * r]; });
+  const outline = {
+    disc: (w) => arcPts(0, 0, w / 2, 0, Math.PI * 2, 56).slice(0, -1),
+    oval: (w, h) => [...arcPts(w / 2 - h / 2, 0, h / 2, -Math.PI / 2, Math.PI / 2, 20), ...arcPts(-w / 2 + h / 2, 0, h / 2, Math.PI / 2, Math.PI * 1.5, 20)],
+    ticket: (w, h, c = 0.06) => [[-w / 2 + c, -h / 2], [w / 2 - c, -h / 2], [w / 2, -h / 2 + c], [w / 2, h / 2 - c], [w / 2 - c, h / 2], [-w / 2 + c, h / 2], [-w / 2, h / 2 - c], [-w / 2, -h / 2 + c]],
+    rounded: (w, h, r = 0.05) => [...arcPts(w / 2 - r, -h / 2 + r, r, -Math.PI / 2, 0, 6), ...arcPts(w / 2 - r, h / 2 - r, r, 0, Math.PI / 2, 6), ...arcPts(-w / 2 + r, h / 2 - r, r, Math.PI / 2, Math.PI, 6), ...arcPts(-w / 2 + r, -h / 2 + r, r, Math.PI, Math.PI * 1.5, 6)],
+  };
+  // Enamel plate: thin steel blank, printed both sides with a cream rim, chipped edges and rivet holes.
+  function enamel(kind, w, h, hx, field, ink, label, sub, seed) {
+    const pts = outline[kind](w, h), shape = new THREE.Shape(pts.map(([x, y]) => new THREE.Vector2(x, y)));
+    const g = new THREE.Group();
+    put(g, new THREE.Mesh(new THREE.ExtrudeGeometry(shape, { depth: 0.012, bevelEnabled: true, bevelThickness: 0.003, bevelSize: 0.004, bevelSegments: 1 }).translate(0, 0, -0.006), plateSteel), 0, 0, 0);
+    const PX = 700, holeY = h / 2 - 0.035;
+    const t = canvasTex(Math.round(w * PX), Math.round(h * PX), (c, W, H) => {
+      const trace = (k, kx = 1, ky = 1) => { c.beginPath(); pts.forEach(([x, y], i) => c[i ? 'lineTo' : 'moveTo'](W / 2 + x * PX * kx, H / 2 - y * PX * ky)); c.closePath(); };
+      c.fillStyle = '#EFE7D6'; c.fillRect(0, 0, W, H);
+      trace(0, 1 - 0.05 / w, 1 - 0.05 / h); c.fillStyle = field; c.fill();
+      trace(0, 1 - 0.075 / w, 1 - 0.075 / h); c.strokeStyle = 'rgba(239,231,214,0.85)'; c.lineWidth = 4; c.stroke();
+      c.fillStyle = ink; c.textAlign = 'center'; c.textBaseline = 'middle';
+      const room = (kind === 'disc' ? 0.72 : 0.76) * W; let fs = H * (kind === 'disc' ? 0.2 : 0.34);
+      c.font = `400 ${fs}px Bungee, sans-serif`; const tw = c.measureText(label).width; if (tw > room) c.font = `400 ${fs * room / tw}px Bungee, sans-serif`;
+      c.fillText(label, W / 2, H * 0.48);
+      c.globalAlpha = 0.75; c.font = `600 ${H * (kind === 'disc' ? 0.075 : 0.13)}px "IBM Plex Mono", monospace`; c.fillText(sub, W / 2, H * (kind === 'disc' ? 0.64 : 0.76)); c.globalAlpha = 1;
+      for (const sy of [1, -1]) for (const sx of [-1, 1]) { const x = W / 2 + sx * hx * PX, y = H / 2 - sy * holeY * PX; c.fillStyle = '#C9BFA9'; c.beginPath(); c.arc(x, y, 11, 0, 7); c.fill(); c.fillStyle = '#1B1A17'; c.beginPath(); c.arc(x, y, 6, 0, 7); c.fill(); }
+      // chipped enamel showing dark steel near the rim
+      let s = seed; const rnd = () => ((s = s * 16807 % 2147483647) / 2147483647);
+      c.fillStyle = '#20262A';
+      for (let i = 0; i < 6; i++) {
+        const [px, py] = pts[Math.floor(rnd() * pts.length)], x = W / 2 + px * PX * 0.97, y = H / 2 - py * PX * 0.97;
+        c.beginPath(); for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2, r = 3 + rnd() * 9; c[k ? 'lineTo' : 'moveTo'](x + Math.cos(a) * r, y + Math.sin(a) * r); } c.fill();
+      }
+      const grime = c.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.2, W / 2, H / 2, Math.max(W, H) * 0.6);
+      grime.addColorStop(0, 'rgba(40,30,20,0)'); grime.addColorStop(1, 'rgba(40,30,20,0.22)'); c.fillStyle = grime; c.fillRect(0, 0, W, H);
+    });
+    const faceGeo = new THREE.ShapeGeometry(shape);
+    const pos = faceGeo.attributes.position, uv = faceGeo.attributes.uv;
+    for (let i = 0; i < pos.count; i++) uv.setXY(i, pos.getX(i) / w + 0.5, pos.getY(i) / h + 0.5);
+    const faceMat = new THREE.MeshStandardMaterial({ map: t, emissive: 0xffffff, emissiveMap: t, emissiveIntensity: 0.1, roughness: 0.55 });
+    for (const side of [1, -1]) { const f = new THREE.Mesh(faceGeo, faceMat); f.position.z = side * 0.0105; if (side < 0) f.rotation.y = Math.PI; f.receiveShadow = true; g.add(f); }
+    g.userData = { face: faceMat, top: h / 2 - 0.035, bottom: -(h / 2 - 0.035), hx };
+    return g;
+  }
+  // short chain of alternating links between two points in rack space
+  const linkGeo = new THREE.TorusGeometry(0.014, 0.0038, 6, 14), UP = new THREE.Vector3(0, 1, 0);
+  function chain(a, b) {
+    const d = b.clone().sub(a), n = Math.max(2, Math.round(d.length() / 0.028)), q = new THREE.Quaternion().setFromUnitVectors(UP, d.clone().normalize());
+    for (let i = 0; i < n; i++) {
+      const l = new THREE.Mesh(linkGeo, chainMat); l.scale.set(1, 1.5, 1);
+      l.position.copy(a).addScaledVector(d, (i + 0.5) / n); l.quaternion.copy(q).multiply(new THREE.Quaternion().setFromAxisAngle(UP, i % 2 ? Math.PI / 2 : 0));
+      l.castShadow = true; rack.add(l);
+    }
+  }
+  const plates = [
+    ['phone', enamel('disc', 0.48, 0.48, 0.08, '#C3241C', '#F7F3EA', 'ROAMATES', 'JOB 001', 11), 1.63, 0.03],
+    ['tv', enamel('oval', 0.86, 0.25, 0.26, '#1F8A7E', '#F7F3EA', 'CHAIN REACTION', 'JOB 002 · TV', 23), 1.25, -0.025],
+    ['safe', enamel('ticket', 0.7, 0.28, 0.22, '#E0A531', '#1B1A17', 'ESCAPE GAME', 'JOB 003 · SAFE', 37), 0.93, 0.02],
+    ['rotary', enamel('rounded', 0.56, 0.2, 0.18, '#3E6FA8', '#F7F3EA', 'CONTACT', 'RING THE WALL PHONE', 41), 0.64, -0.015],
+  ];
+  const signs = { ticket: header };
+  header.userData.face = headFace.material;
+  let above = (s, hx) => new THREE.Vector3(s * hx, 1.92, 0);
+  for (const [id, plate, y, rz] of plates) {
+    put(rack, plate, 0, y, 0, 0, 0, rz); signs[id] = plate;
+    const { top, bottom, hx } = plate.userData, at = (sx, py) => new THREE.Vector3(sx * Math.cos(rz) - py * Math.sin(rz), y + sx * Math.sin(rz) + py * Math.cos(rz), 0);
+    for (const s of [-1, 1]) chain(above(s, hx), at(s * hx, top));
+    above = (s) => at(s * hx, bottom);
+  }
 
   /* ---------- upper floor: tiled room, recessed grille and a single pitched roof ---------- */
   const UF = H1 + 0.16, UH = EAVE - UF, fz = Z0 + OH, rx = X1 + OH;
@@ -923,10 +1006,12 @@ export async function buildShop(renderer, onProgress = () => {}) {
   for (const zz of [-0.67, 0.65]) {
     const skylight = new THREE.Group(); skylight.name = 'red-roof-skylight';
     put(roofAssembly, skylight, 0.08, 0.065, zz);
-    put(skylight, rbox(0.53, 0.055, 0.68, flashing, 0.01), 0, 0, 0);
-    put(skylight, rbox(0.45, 0.07, 0.6, skyFrame, 0.012), 0, 0.035, 0);
-    put(skylight, rbox(0.32, 0.018, 0.44, skyMat, 0.008), 0, 0.079, 0);
-    put(skylight, rbox(0.33, 0.012, 0.025, mat.pipe, 0.004), 0, 0.091, -0.21);
+    // wide landscape strip, split into three panes
+    put(skylight, rbox(1.36, 0.055, 0.46, flashing, 0.01), 0, 0, 0);
+    put(skylight, rbox(1.28, 0.07, 0.38, skyFrame, 0.012), 0, 0.035, 0);
+    put(skylight, rbox(1.12, 0.018, 0.22, skyMat, 0.008), 0, 0.079, 0);
+    for (const mx of [-0.19, 0.19]) put(skylight, rbox(0.03, 0.03, 0.24, skyFrame, 0.006), mx, 0.083, 0);
+    put(skylight, rbox(1.13, 0.012, 0.025, mat.pipe, 0.004), 0, 0.091, -0.13);
   }
   const rearDeck = put(upper, rbox(roofWidth, 0.12, ridgeZ - ZB + 0.2, mat.roof, 0.01), upX, TOP + 0.04, (ridgeZ + ZB) / 2);
   rearDeck.name = 'upper-flat-roof-deck'; support.push(rearDeck);
@@ -985,8 +1070,8 @@ export async function buildShop(renderer, onProgress = () => {}) {
     }
   }
   for (const zz of [-0.67, 0.65]) {
-    for (const xx of [-0.2, 0.2]) for (const dz of [-0.27, 0.27]) rivet(roofAssembly, xx + 0.08, 0.14, zz + dz, 0.006);
-    put(roofAssembly, rbox(0.36, 0.028, 0.045, mat.pipeDark, 0.004), 0.08, 0.16, zz - 0.29);
+    for (const xx of [-0.58, 0.58]) for (const dz of [-0.15, 0.15]) rivet(roofAssembly, xx + 0.08, 0.14, zz + dz, 0.006);
+    put(roofAssembly, rbox(1.2, 0.028, 0.045, mat.pipeDark, 0.004), 0.08, 0.16, zz - 0.17);
   }
   // A thin gutter under the low ledge, with brackets and a drain elbow.
   put(upperDetails, new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, roofWidth - 0.14, 10), mat.pipeDark), upX, EAVE - 0.075, ledgeFrontZ + 0.02, 0, 0, Math.PI / 2);
@@ -1125,7 +1210,7 @@ export async function buildShop(renderer, onProgress = () => {}) {
   put(backDoor, rbox(0.84, 2.04, 0.06, mat.greenMetal, 0.01), 0, 1.06, 0.03);
   put(backDoor, new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.08, 16), mat.brass), 0.32, 1.05, 0.08, 0, Math.PI / 2);
   put(backDoor, rbox(1.2, 0.12, 0.4, mat.band, 0.02), 0, 0.06, 0.22);
-  put(backDoor, new THREE.Mesh(new THREE.SphereGeometry(0.06, 20, 12), new THREE.MeshStandardMaterial({ color: 0xFFE2B0, emissive: 0xFFC27A, emissiveIntensity: 3 })), 0, 2.38, 0.14).castShadow = false;
+  put(backDoor, new THREE.Mesh(new THREE.SphereGeometry(0.06, 20, 12), new THREE.MeshStandardMaterial({ color: 0xFFE2B0, emissive: 0xFFC27A, emissiveIntensity: 1 })), 0, 2.38, 0.14).castShadow = false;
   const backLight = new THREE.PointLight(0xFFB466, 2.0, 4.5, 2); backLight.position.set(-0.6, 2.3, ZB - 0.5); bld.add(backLight);
   windowWithCage(bld, -3.0, 2.0, ZB - 0.08, Math.PI, false);
   windowWithCage(bld, -1.3, UF + 0.72, ZB - 0.08, Math.PI, false, 0.8);
@@ -1206,13 +1291,40 @@ export async function buildShop(renderer, onProgress = () => {}) {
   clutter(-2.35, 1.3, 1); clutter(-0.15, 1.35, 2); clutter(2.95, 0.6, 3);
   model('chinese_stool', root, 1.95, 0, 1.8, 0.3, 1.35);
   model('painted_wooden_stool', root, 3.3, 0, 1.85, -0.4, 1.3);
-  model('potted_plant_02', root, -4.0, 0, 1.95, 0.3, 1.6);
   model('planter_box_01', root, 3.5, 0, -0.9, Math.PI / 2, 1.0);
   model('plastic_crate_02', root, -2.95, 0, 0.95, 0.3, 1.0);
   model('plastic_crate_02', root, -2.93, 0.29, 0.97, 0.1, 1.0);
   model('cardboard_box_01', root, 3.5, 0, 1.95, -0.4, 1.0);
   
   model('trashbag', root, 3.55, 0, -2.0, 0.6, 0.75);
+
+  /* ---------- street trees on the pavement around the shop, each in an iron grate ---------- */
+  const leafMats = [0x24543A, 0x2E6340, 0x1F4A33, 0x3A6E46].map((c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, flatShading: true }));
+  const barkMat = M(0x4A3426, { roughness: 0.9 }), soilMat = M(0x2A2420, { roughness: 1 });
+  const leafGeo = new THREE.IcosahedronGeometry(1, 1);
+  const trees = [];
+  function streetTree(x, z, s, tall, seed) {
+    let sd = seed; const rnd = () => ((sd = sd * 16807 % 2147483647) / 2147483647);
+    const t = new THREE.Group(); put(root, t, x, 0, z, rnd() * Math.PI * 2); t.scale.setScalar(s);
+    put(t, rbox(0.9, 0.02, 0.9, soilMat, 0.005), 0, 0.01, 0);
+    for (const [gx, gz, gw, gd] of [[0, 0.43, 0.9, 0.05], [0, -0.43, 0.9, 0.05], [0.43, 0, 0.05, 0.9], [-0.43, 0, 0.05, 0.9]]) put(t, rbox(gw, 0.025, gd, mat.iron, 0.004), gx, 0.013, gz);
+    const trunkH = tall ? 2.2 : 1.6;
+    put(t, new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, trunkH, 9), barkMat), 0, trunkH / 2, 0);
+    for (const side of [-1, 1]) put(t, new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.06, 0.7, 7), barkMat), side * 0.16, trunkH - 0.15, 0, 0, 0, -side * 0.6);
+    const crown = new THREE.Group(); put(t, crown, 0, trunkH - 0.2, 0);
+    const blobs = tall ? [[0, 0.45, 0, 0.62], [0, 1.15, 0, 0.5], [0, 1.75, 0, 0.36], [0.25, 0.75, 0.15, 0.42]] : [[0, 0.55, 0, 0.75], [0.5, 0.4, 0.1, 0.55], [-0.45, 0.45, -0.15, 0.58], [0.1, 0.4, 0.5, 0.5], [-0.1, 1.0, -0.1, 0.55]];
+    for (const [bx, by, bz, br] of blobs) {
+      const b = put(crown, new THREE.Mesh(leafGeo, leafMats[Math.floor(rnd() * leafMats.length)]), bx, by, bz, rnd() * 3, rnd() * 3);
+      b.scale.set(br, br * (0.85 + rnd() * 0.2), br);
+    }
+    crown.userData.phase = rnd() * 10; trees.push(crown);
+  }
+  // Kept to the pavement (x < SX1, z < SZ1) and out of the default camera's line of sight.
+  for (const [x, z, s, tall, seed] of [
+    [-6.0, 2.2, 1.25, false, 3], [-7.6, -1.2, 1.4, true, 5], [-5.6, -5.2, 1.5, false, 7], [-2.0, -6.0, 1.3, true, 9],
+    [1.6, -5.8, 1.45, false, 13], [3.9, -4.6, 1.2, true, 17], [-9.5, 2.0, 1.5, false, 19], [-10.5, -4.5, 1.6, false, 23],
+    [-6.5, -9.5, 1.7, true, 29], [0.5, -10.5, 1.6, false, 31], [3.8, -9.0, 1.4, false, 37], [-13, -1, 1.8, true, 41],
+  ]) streetTree(x, z, s, tall, seed);
 
   /* ---------- global lights ---------- */
   const hemi = new THREE.HemisphereLight(0x9CC6DC, 0x26302E, 1.95);
@@ -1255,7 +1367,7 @@ export async function buildShop(renderer, onProgress = () => {}) {
   const RAIN = 0;
 
   function setLit(k) {
-    bulbLight.intensity = 4 * k; bulbs.forEach((m) => (m.emissiveIntensity = 0.1 + 9 * k));
+    bulbLight.intensity = 4 * k; bulbs.forEach((m) => (m.emissiveIntensity = 0.1 + 3 * k));
     tubeLight.intensity = 1.2 * k; tubeMat.emissiveIntensity = 0.2 + 4 * k;
     lampLight.intensity = 3 * k; annexLight.intensity = 2.2 * k; tvScreenMat.emissiveIntensity = 0.2 + 1.5 * k; tvLight.intensity = 1.2 * k;
     phoneScreenMat.emissiveIntensity = 0.3 + 1.4 * k; phoneLight.intensity = 0.25 * k;
@@ -1328,5 +1440,5 @@ export async function buildShop(renderer, onProgress = () => {}) {
       }
     }
   });
-  return { root, envMap, hotspots, setLit, anim: { smokeFrom, bulbsGroup: bulbs, smoke, rain, RAIN, shopShutter: shutters, dial, signFace: signBox.userData.face, vFace: vSign.userData.face } };
+  return { root, envMap, hotspots, signs, setLit, anim: { trees, smokeFrom, bulbsGroup: bulbs, smoke, rain, RAIN, shopShutter: shutters, dial, signFace: signBox.userData.face, vFace: vSign.userData.face } };
 }
