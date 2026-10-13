@@ -2,8 +2,13 @@
 
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 export default function Header() {
+  // On the home page, Blog scrolls to the blog section like the other links;
+  // everywhere else it opens the blog index.
+  const blogHref = usePathname() === '/' ? '/#blog' : '/blog';
+
   return (
     <motion.header
       initial={{ opacity: 0, y: -20 }}
@@ -22,7 +27,7 @@ export default function Header() {
           </motion.div>
         </Link>
 
-        <div className="flex items-center gap-8">
+        <div className="flex items-center gap-4 sm:gap-8">
           <Link href="/#projects">
             <motion.span
               className="text-zinc-400 hover:text-white transition-colors text-sm font-medium"
@@ -39,6 +44,15 @@ export default function Header() {
               transition={{ duration: 0.2 }}
             >
               About
+            </motion.span>
+          </Link>
+          <Link href={blogHref}>
+            <motion.span
+              className="text-zinc-400 hover:text-white transition-colors text-sm font-medium"
+              whileHover={{ y: -2 }}
+              transition={{ duration: 0.2 }}
+            >
+              Blog
             </motion.span>
           </Link>
           <Link href="/#contact">

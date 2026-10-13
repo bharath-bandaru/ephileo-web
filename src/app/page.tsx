@@ -8,7 +8,12 @@ import { ScrollToPlugin } from 'gsap/ScrollToPlugin';
 import dynamic from 'next/dynamic';
 import Header from '@/components/ui/Header';
 import ProjectCard from '@/components/ui/ProjectCard';
+import Reviews from '@/components/ui/Reviews';
 import { projects } from '@/lib/projects';
+import { formatDate, posts } from '@/lib/blog';
+import PostLink from '@/components/blog/PostLink';
+import Link from 'next/link';
+import Image from 'next/image';
 
 // Dynamic import for 3D scene to avoid SSR issues
 const PinScene = dynamic(() => import('@/components/3d/PinScene'), {
@@ -527,6 +532,65 @@ export default function Home() {
               </motion.div>
             </div>
           </motion.div>
+        </div>
+      </section>
+
+      {/* User Reviews */}
+      <Reviews />
+
+      {/* Blog Section */}
+      <section id="blog" className="relative z-10 py-32 px-6 bg-gradient-to-b from-[#05080a] via-[#081219] to-[#05080a]">
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="text-center mb-16"
+          >
+            <span className="inline-block mb-4 px-4 py-2 rounded-full bg-[#0fb0c8]/10 border border-[#0fb0c8]/25 text-[#0fb0c8] text-sm font-medium">
+              Blog
+            </span>
+            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4 bg-gradient-to-r from-[#f2b134] via-[#0fb0c8] to-[#1fc77a] bg-clip-text text-transparent">
+              From the Blog
+            </h2>
+            <p className="text-zinc-400 text-lg max-w-2xl mx-auto">
+              Guides on shared living, group trips, and the apps we build
+            </p>
+          </motion.div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {posts.slice(0, 3).map((post) => (
+              <PostLink
+                key={post.slug}
+                href={`/blog/${post.slug}`}
+                className="group overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/50 hover:border-zinc-700 transition-colors"
+              >
+                <div className="relative aspect-[16/9] overflow-hidden">
+                  <Image
+                    src={post.image}
+                    alt={post.imageAlt}
+                    fill
+                    sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+                    className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+                  />
+                </div>
+                <div className="p-6">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-[#34D399]">
+                    {post.tags[0]}
+                  </p>
+                  <h3 className="mb-3 text-lg font-semibold leading-snug text-white">{post.title}</h3>
+                  <p className="text-sm text-zinc-500">{formatDate(post.publishedAt)}</p>
+                </div>
+              </PostLink>
+            ))}
+          </div>
+
+          <div className="mt-10 text-center">
+            <Link href="/blog" className="text-sm font-medium text-zinc-400 hover:text-white transition-colors">
+              View all posts →
+            </Link>
+          </div>
         </div>
       </section>
 

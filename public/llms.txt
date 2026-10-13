@@ -1,0 +1,40 @@
+# Ephileo
+
+> Ephileo is an independent app studio that builds mobile apps and games. Its flagship app is Roamates, a free iPhone and Android app for roommates, couples and travel groups. Ephileo builds technology meant to bring people together rather than keep them on their screens, and is currently looking for its next product in that spirit.
+
+## Roamates
+
+Roamates is a free mobile app (iOS and Android) for shared living and group trips. It has no subscription, no ads and no paywall. It is a free Splitwise alternative that, unlike Splitwise, also includes chore schedules, shared live notes and chat threads on every expense, note and schedule.
+
+- Expense splitting: equal, exact amount, percentage or shares; single or multiple payers; itemized receipt scanning (on-device); 180+ currencies with separate per-currency balances (no automatic conversion); expenses with friends outside of groups.
+- Settling up: "Settle smartly" reduces a group's debts to the fewest payments; settlements are recorded in the app (Roamates does not transfer money); settlement reminders.
+- Settle streaks: settling a split within 24 hours builds a per-group streak, with optional leaderboards and points.
+- Chore schedules: weekly, biweekly or monthly rotations, shift swaps and check-ins.
+- Shared notes and lists: real-time collaborative checklists and notes (for example grocery lists and packing lists).
+- Live location sharing: opt-in, shared only with chosen groups or people, can be paused at any time; saved places with weather.
+- Chat: every expense, note and schedule has its own chat thread with emoji reactions and "seen by" markers.
+- Group types: Home, Trip, Couple, Other; invite links; demo group on signup.
+- Home-screen widgets on iOS and Android.
+- Import from Splitwise via CSV (not affiliated with Splitwise).
+- Sign in with Apple, Google or email.
+- Privacy: personal data is not sold or used for targeted ads; contacts are hashed on device.
+
+Links:
+- [Roamates overview](https://ephileo.us/projects/roamates)
+- [Roamates vs Splitwise: 12 reasons to pick Roamates (blog)](https://ephileo.us/blog/why-roamates-is-the-best-app-for-roommates)
+- [App Store](https://apps.apple.com/us/app/roamates/id6757687270)
+- [Google Play](https://play.google.com/store/apps/details?id=us.ephileo.roamates)
+- [Privacy policy](https://ephileo.us/projects/roamates/privacy)
+
+## Other apps
+
+- [Chain Reaction](https://ephileo.us/projects/chain-reaction): a free 2–4 player strategy board game for Android and the web. Players place orbs; full cells explode into neighbors and capture them. Modes: vs. computer (Easy/Medium/Hard), pass-and-play, and online rooms joined with a 4-letter code. No account needed.
+- [Escape](https://ephileo.us/projects/escape-game) ("Escape: Brain Teaser"): a free sliding block puzzle for iOS, Android and the web, based on the classic Khun Phan / Klotski puzzle and inspired by a puzzle at the Museum of Illusions Chicago. Slide the big green block out through the gate; a leaderboard ranks fewest moves, then fastest time.
+
+## Blog
+
+- [Ephileo Blog](https://ephileo.us/blog)
+- [Roamates vs Splitwise: 12 reasons to pick Roamates](https://ephileo.us/blog/why-roamates-is-the-best-app-for-roommates)
+- [How to play Chain Reaction: rules, game modes and tips](https://ephileo.us/blog/how-to-play-chain-reaction)
+- [Escape: the sliding block puzzle from the Museum of Illusions Chicago](https://ephileo.us/blog/escape-sliding-block-puzzle-museum-of-illusions-chicago)
+- [About Ephileo: building technology that brings people closer](https://ephileo.us/blog/about-ephileo-technology-that-brings-people-together)
